@@ -1,6 +1,8 @@
 """Main video generation engine."""
 
 import threading
+import tempfile
+import uuid
 from pathlib import Path
 from typing import Callable
 
@@ -35,10 +37,12 @@ RESOLUTIONS = {
 def _fit_to_frame(img: Image.Image, width: int = _WIDTH, height: int = _HEIGHT) -> Image.Image:
     """Scale and center-crop a PIL image to width x height (cover mode)."""
     orig_w, orig_h = img.size
+    if orig_w == width and orig_h == height:
+        return img
     scale = max(width / orig_w, height / orig_h)
     new_w = int(orig_w * scale)
     new_h = int(orig_h * scale)
-    img = img.resize((new_w, new_h), Image.LANCZOS)
+    img = img.resize((new_w, new_h), Image.BILINEAR)
     left = (new_w - width) // 2
     top = (new_h - height) // 2
     return img.crop((left, top, left + width, top + height))
@@ -48,31 +52,29 @@ def _build_bg_frame_getter(
     background_path: str | Path,
     width: int = _WIDTH,
     height: int = _HEIGHT,
-) -> Callable[[float], Image.Image]:
-    """Return a function that maps video time t → background PIL Image.
-
-    Implements ping-pong looping: the clip plays forward then in reverse,
-    repeating as many times as needed.  The seam between the end of the
-    reverse pass and the start of the next forward pass is seamless because
-    both meet at frame 0 of the source clip.
-    """
-    clip = VideoFileClip(str(background_path))
+) -> tuple[Callable[[float], Image.Image], Callable[[], None]]:
+    """Return a function that maps video time t → background PIL Image, and a cleanup callback."""
+    clip = VideoFileClip(str(background_path), audio=False)
     bg_dur = clip.duration
     cycle = 2.0 * bg_dur
-    # Small epsilon to avoid requesting a frame exactly at the last second
-    # (some decoders are off-by-one at the boundary).
     _eps = 1.0 / 60.0
 
     def get_bg_frame(t: float) -> Image.Image:
         ct = t % cycle
         bg_t = ct if ct <= bg_dur else cycle - ct
-        # Clamp within valid range
         bg_t = min(max(bg_t, 0.0), bg_dur - _eps)
         frame = clip.get_frame(bg_t)  # HxWx3 uint8
         img = Image.fromarray(frame.astype(np.uint8), "RGB").convert("RGBA")
         return _fit_to_frame(img, width=width, height=height)
 
-    return get_bg_frame
+    def cleanup():
+        try:
+            clip.close()
+        except Exception:
+            pass
+
+    return get_bg_frame, cleanup
+
 
 
 def generate_video(
@@ -142,9 +144,10 @@ def generate_video(
 
     # Build background frame getter (ping-pong loop) if a video was provided
     bg_frame_getter = None
+    bg_cleanup = None
     if background_path is not None:
         print(f"Background: {background_path} (ping-pong loop, {render_w}x{render_h})")
-        bg_frame_getter = _build_bg_frame_getter(background_path, width=render_w, height=render_h)
+        bg_frame_getter, bg_cleanup = _build_bg_frame_getter(background_path, width=render_w, height=render_h)
 
     # Build scrolling animation over all lines
     animation = ScrollingAnimation(
@@ -191,21 +194,60 @@ def generate_video(
     audio_start = preview_start if preview else 0.0
     video = VideoClip(frame_function=make_frame, duration=total_duration)
     video = video.with_fps(fps)
-    video = video.with_audio(audio.subclipped(audio_start, audio_start + total_duration))
+
+    if preview:
+        end_t = min(audio_start + total_duration, audio.duration)
+        video = video.with_audio(audio.subclipped(audio_start, end_t))
+    else:
+        video = video.with_audio(audio)
 
     # Ensure output directory exists
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Export
-    print(f"Exporting to {output_path}...")
-    video.write_videofile(
-        str(output_path),
-        fps=fps,
-        codec="libx264",
-        audio_codec="aac",
-        logger=logger,
-    )
+    # Temporary audio file path in standard /tmp directory to avoid permission issues
+    temp_dir = Path(tempfile.gettempdir())
+    temp_audio = str(temp_dir / f"temp_{uuid.uuid4().hex[:8]}_audio.m4a")
+
+    # Export with memory-optimized FFmpeg parameters
+    print(f"Exporting to {output_path} (preset=ultrafast, threads=2)...")
+    try:
+        video.write_videofile(
+            str(output_path),
+            fps=fps,
+            codec="libx264",
+            audio_codec="aac",
+            preset="ultrafast",
+            threads=2,
+            ffmpeg_params=[
+                "-pix_fmt", "yuv420p",
+                "-movflags", "+faststart",
+                "-max_muxing_queue_size", "1024",
+            ],
+            temp_audiofile=temp_audio,
+            remove_temp=True,
+            logger=logger,
+        )
+    finally:
+        try:
+            video.close()
+        except Exception:
+            pass
+        try:
+            audio.close()
+        except Exception:
+            pass
+        if bg_cleanup is not None:
+            try:
+                bg_cleanup()
+            except Exception:
+                pass
+        if Path(temp_audio).exists():
+            try:
+                Path(temp_audio).unlink()
+            except Exception:
+                pass
 
     print(f"Done! Video saved to {output_path}")
     return output_path
+
