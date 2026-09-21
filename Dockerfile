@@ -37,7 +37,5 @@ COPY input/ ./input/
 # Ensure all runtime media storage directories exist
 RUN mkdir -p /app/input/audio /app/input/lyrics /app/input/backgrounds /app/output
 
-EXPOSE ${PORT}
-
-# Launch FastAPI via uvicorn binding to Railway's assigned $PORT
-CMD ["sh", "-c", "uvicorn src.api.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Launch FastAPI via Python entrypoint which safely parses Railway's $PORT
+CMD ["python", "-m", "src.api.main"]

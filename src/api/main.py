@@ -280,5 +280,7 @@ async def auto_lyrics(slug: str):
 if __name__ == "__main__":
     import uvicorn
     import os
-    port = int(os.environ.get("PORT", 8000))
+    port_env = os.environ.get("PORT", "8000").strip()
+    port = int(port_env) if port_env.isdigit() else 8000
+    print(f"Starting server on 0.0.0.0:{port}")
     uvicorn.run("src.api.main:app", host="0.0.0.0", port=port, reload=False)
