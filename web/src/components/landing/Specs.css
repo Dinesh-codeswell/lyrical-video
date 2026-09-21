@@ -1,0 +1,100 @@
+/* ────────────────────────────────────────────────────────────────────────── */
+/* Allfeat Benchmark Comparison Table Card                                    */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+.specs-table-card {
+  width: 100%;
+  max-width: 1100px;
+  padding: 0 !important;
+  text-align: left;
+  overflow-x: auto;
+}
+
+.specs-table-header {
+  display: grid;
+  grid-template-columns: 280px 1fr 1.2fr;
+  padding: 16px 24px;
+  background-color: #1a1a1a;
+  border-bottom: 1px solid var(--color-card-edge, #383835);
+  font-family: var(--font-ui-monospace, monospace);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-mute-cream, #b8b8b8);
+  letter-spacing: 0.06em;
+}
+
+.specs-table-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.specs-table-row {
+  display: grid;
+  grid-template-columns: 280px 1fr 1.2fr;
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--color-card-edge, #383835);
+  align-items: center;
+  transition: background-color 0.15s ease;
+}
+
+.specs-table-row:last-child {
+  border-bottom: none;
+}
+
+.specs-table-row:hover {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+.metric-title {
+  font-family: var(--font-tasa-orbiter, sans-serif);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-warm-cream, #fffbeb);
+}
+
+.trad-text {
+  font-family: var(--font-tasa-orbiter, sans-serif);
+  font-size: 14px;
+  color: var(--color-ash-gray, #a6a6a6);
+}
+
+.col-lyricgen {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lyricgen-text {
+  font-family: var(--font-tasa-orbiter, sans-serif);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-warm-cream, #fffbeb);
+}
+
+.advantage-pill {
+  font-family: var(--font-ui-monospace, monospace);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-signal-teal, #00b18c);
+  background-color: rgba(0, 177, 140, 0.12);
+  border: 1px solid rgba(0, 177, 140, 0.3);
+  border-radius: var(--radius-badges, 900px);
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .specs-table-header {
+    display: none;
+  }
+  .specs-table-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 16px;
+  }
+  .col-lyricgen {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

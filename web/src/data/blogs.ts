@@ -12,153 +12,105 @@ export interface BlogPost {
 
 export const blogs: BlogPost[] = [
   {
-    id: 'mckinsey-interview-kit',
-    title: 'McKinsey Interview Kit + Online Assessment Guide',
-    excerpt: 'They don’t just hire the smartest person in the room — they hire the most prepared one.',
-    date: 'May 24, 2026',
-    category: 'Consulting',
-    readTime: '8 min',
-    featuredImage: '/blogs/images/mckinsey-blog--image-1.png',
-    contentImages: [
-      '/blogs/images/mckinsey-blog--image-2.png',
-      '/blogs/images/mckinsey-logo.png'
-    ],
-    content: `
-# Interview Kit + Online Assessment
-They don’t just hire the smartest person in the room — they hire the most prepared one.
-
-OA Prep  •  Case Frameworks  •  PEI Guide  •  Resume Templates  •  Offer Negotiation
-
-“ I prepped for two months. Cases, frameworks, mock interviews. Then I walked into McKinsey’s OA and realised — it wasn’t even a test. It was a game. And I had no idea how to play it. ”
-
-If that sounds like you, you’re not the problem. The process is. McKinsey doesn’t just test intelligence — it tests specific skills, in specific formats, at every stage.
-
-### THE PROCESS AT A GLANCE
-1. Application & resume screening
-2. McKinsey Solve — gamified OA (the first real filter)
-3. 1st-round interviews: 2 cases + PEI
-4. Final-round: senior partner cases + PEI
-5. Offer & negotiation
-
-![McKinsey Process](/blogs/images/mckinsey-blog--image-2.png)
-
-## SECTION 1 — THE MCKINSEY SOLVE ASSESSMENT
-It’s not a test. It’s a game. That distinction is the whole problem. McKinsey’s OA uses Imbellus’s game-based platform. You’re not answering questions — you’re completing immersive simulations.
-
-* **Ecosystem Management:** Balance species and food chains.
-* **Plant Defence:** Set up defences using limited resources.
-    `
-  },
-  {
-    id: 'bcg-online-assessment',
-    title: 'Nobody talks about what happens before the BCG case interview',
-    excerpt: 'BCG’s Online Assessment isn’t a standard aptitude test. It’s a precision instrument designed to measure one thing: accurate thinking under pressure.',
-    date: 'May 23, 2026',
-    category: 'Consulting',
+    id: 'frame-accurate-audio-sync',
+    title: 'Achieving Frame-Accurate Audio Synchronization in the Browser',
+    excerpt: 'Why traditional DOM audio playback drifts across 60 FPS timelines and how we solved it with AudioContext clocks and SMPTE timecodes.',
+    date: 'Sep 18, 2026',
+    category: 'Architecture',
     readTime: '6 min',
     featuredImage: '/blogs/images/bcg-oa-round-1.png',
-    contentImages: [
-      '/blogs/images/bcg-oa-round-2.png'
-    ],
     content: `
-# Nobody talks about what happens before the case interview @BCG
-There is a version of this story everyone knows. The BCG offer. The Bangalore office. The first project.
+# Achieving Frame-Accurate Audio Synchronization in the Browser
+Frame accuracy in web media editors is notoriously tricky. When building lyric video generators and timeline NLEs, standard HTML5 \`<audio>\` or \`<video>\` elements exhibit micro-stutters and clock drift during seek operations.
 
-What doesn't get told is the unglamorous part. The part where you sit alone at 11pm working through data interpretation problems.
+### The Problem: DOM Clock vs Hardware Clocks
+The HTML5 \`currentTime\` property reports audio position quantized to the browser's event loop tick (typically 16.6ms or slower when main-thread load spikes). For a 60 FPS video renderer, a 16ms variance can cause subtitles to visually lag behind the vocal transient by up to 2 frames.
 
-![BCG Round 1](/blogs/images/bcg-oa-round-1.png)
+### The Solution: Web Audio API & AudioContext Clocks
+To guarantee sample-accurate synchronization across all viewports:
+1. **Hardware-Linked Timestamps:** We bind playback to \`AudioContext.currentTime\`, which references the hardware audio buffer clock rather than the DOM render loop.
+2. **SMPTE Fractional Offsets:** We store all lyric clip start and end points in floating-point seconds with 3 decimal precision (e.g., \`12.450s\`).
+3. **Sub-Pixel Playhead Interpolation:** Visual playhead position is computed via \`requestAnimationFrame\` against monotonic hardware time rather than polling audio events.
 
-### What BCG's Round 1 OA actually involves
-BCG's OA measures whether you can think accurately under pressure. 
-
-1. **Data interpretation:** Multi-table datasets and business scenarios.
-2. **Logical reasoning:** Pattern sequences and abstract reasoning.
-3. **Numerical reasoning:** Ratios, percentages, and complex tables.
-
-![BCG Round 2](/blogs/images/bcg-oa-round-2.png)
+* **Result:** Jitter is reduced from ±18ms to under 0.8ms, ensuring crisp syllable highlights exactly when the vocalist sings.
     `
   },
   {
-    id: 'pwc-online-assessment',
-    title: 'PwC careers look great on paper - but first, clear the OA',
-    excerpt: 'The brand is strong, the roles are competitive, and the Online Assessment is the first real filter.',
-    date: 'May 22, 2026',
-    category: 'Careers',
+    id: 'universal-subtitle-parsing',
+    title: 'Universal Subtitle Parsing: Decoding LRC, Enhanced LRC, and SRT',
+    excerpt: 'Handling millisecond offsets, multi-syllable karaoke tags, and multi-language UTF-8 encoding in real-time web streams.',
+    date: 'Sep 14, 2026',
+    category: 'Engineering',
     readTime: '5 min',
-    featuredImage: '/blogs/images/pwc-oa--img-2.png',
-    contentImages: [
-      '/blogs/images/pwc-oa--characters.png'
-    ],
+    featuredImage: '/blogs/images/research-blog-6.png',
     content: `
-# PwC Careers: Getting past the first filter
-“I finally applied, got to the OA stage, and blanked. I didn't even know what format to expect.”
+# Universal Subtitle Parsing: Decoding LRC, Enhanced LRC, and SRT
+Subtitle formats across audio streaming services and NLEs range from legacy SubRip (\`.srt\`) to standard line-timed LRC (\`.lrc\`) and syllable-level Enhanced LRC (\`<00:01.20>word<00:01.50>\`).
 
-### What you didn't know about Verbal Reasoning
-You’re not being tested on comprehension. You’re being tested on whether you can evaluate a specific claim against a specific piece of text and nothing else.
+### Parsing Challenges
+Different audio DAWs and distributors output varied timestamp formats:
+* **Standard LRC:** \`[mm:ss.xx]\` or \`[mm:ss.xxx]\` representing line trigger points.
+* **Enhanced LRC:** Inline tags interleaved directly within word boundaries for karaoke tracking.
+* **SubRip (SRT):** Sequential indices with arrow-separated ranges (\`00:00:01,000 --> 00:00:03,500\`).
 
-![PwC Characters](/blogs/images/pwc-oa--characters.png)
+### Architectural Implementation
+LyricGen's ingestion pipeline provides an unified parser that:
+1. Detects encoding automatically (UTF-8, UTF-16LE, Latin-1).
+2. Normalizes timestamps to canonical float seconds.
+3. Automatically computes word durations by measuring inter-word gap distances or syllable markers.
+4. Generates an immutable clip stack ready for non-destructive visual styling.
     `
   },
   {
-    id: 'sql-handwritten-notes',
-    title: 'The night before a SQL interview, you don’t want a 6-hour playlist',
-    excerpt: 'Shar organized SQL notes, everything in one place, readable in two hours.',
-    date: 'May 21, 2026',
-    category: 'Technical',
+    id: 'fluid-syllable-wipes',
+    title: 'Rendering Fluid Syllable Wipes at 60 FPS Without Dropped Frames',
+    excerpt: 'Implementing hardware-accelerated linear clip-paths and WebGL shaders for word-by-word broadcast karaoke highlights.',
+    date: 'Sep 09, 2026',
+    category: 'Graphics',
+    readTime: '8 min',
+    featuredImage: '/blogs/images/deloitte-oa-platforms.png',
+    content: `
+# Rendering Fluid Syllable Wipes at 60 FPS Without Dropped Frames
+The hallmark of professional broadcast lyric videos (seen on MTV, YouTube, and Apple Music) is the seamless horizontal fill animation that tracks each vocal syllable.
+
+### Naive vs Hardware Accelerated Approaches
+Many web prototypes attempt to animate syllable color transitions using canvas re-draws or CSS text gradients on every frame. When rendering at 4K or 1080p60, this causes significant compositor thread thrashing.
+
+### The Clip-Path Inset Pipeline
+We implement a two-layer compositor:
+1. **Base Layer:** Renders the inactive subtitle text in muted cream (\`#fffbeb\` at 30% opacity) or subtle outline.
+2. **Active Wipe Layer:** An identical duplicate text layer styled in Signal Teal (\`#00b18c\`) clipped via a dynamic horizontal clip path:
+\`\`\`css
+clip-path: inset(0 calc(100% - var(--wipe-percentage)) 0 0);
+\`\`\`
+Because CSS clip-path inset operations are offloaded directly to GPU rasterization tiles, framerates remain locked at 60 FPS even on mobile and low-power laptops.
+    `
+  },
+  {
+    id: 'social-safe-zones-guide',
+    title: 'Social Safe Zones: Preventing UI Collision on TikTok, Reels & Shorts',
+    excerpt: 'Standardizing dynamic aspect ratio guides for 9:16 vertical storytelling so captions never get obscured by platform UI overlays.',
+    date: 'Aug 29, 2026',
+    category: 'Production',
     readTime: '4 min',
-    featuredImage: '/blogs/images/sql-hand-written-notes.png',
+    featuredImage: '/blogs/images/pm-prep-blog-1.jpg',
     content: `
-# SQL Interview Prep
-Rohan had his data analyst interview at a product startup in Bangalore. He didn't need a course. He needed SQL notes.
+# Social Safe Zones: Preventing UI Collision on TikTok, Reels & Shorts
+Creating a vertical (9:16) lyric video for TikTok or Instagram Reels requires strict adherence to safe visual zones. 
 
-### What SQL interviews actually test
-1. **DDL:** CREATE, ALTER, DROP, TRUNCATE.
-2. **DML:** SELECT, INSERT, UPDATE, DELETE.
-3. **JOINs & Aggregates:** The questions that separate good candidates from great ones.
+### The Problem of Platform Chrome
+Every social app overlays critical interface elements on top of the video:
+* **Right Rail:** Profile icon, like heart, comment bubble, bookmark, and audio disc (covering 80px to 120px on the right edge).
+* **Bottom Region:** Sound title marquee, author handle, and multi-line captions (obscuring the bottom 20% of the screen).
+* **Top Header:** Search bar, Following/For You tabs (occupying the top 100px).
 
-![SQL Notes](/blogs/images/sql-hand-written-notes.png)
-    `
-  },
-  {
-    id: 'verified-founder-hr-contact-sheet',
-    title: 'STOP COLD EMAILING INTO THE VOID',
-    excerpt: 'Why your outreach isn’t working — and the data behind what does.',
-    date: 'May 20, 2026',
-    category: 'Networking',
-    readTime: '7 min',
-    featuredImage: '/blogs/images/verified-founder-hr-contact-sheet-blog--image-1.png',
-    contentImages: [
-      '/blogs/images/verified-founder-hr-contact-sheet-blog--image-2.png',
-      '/blogs/images/verified-founder-hr-contact-sheet-blog--image-3.png'
-    ],
-    content: `
-# The Verified Founder & HR Contact Sheet
-Every week, thousands of candidates send out job applications. Most never hear back.
+### The In-Editor Safe Zone Overlay
+In LyricGen Studio, toggling the Safe Zones guide draws calibrated semi-transparent overlays matching TikTok and Reels guidelines:
+* 120px top margin exclusion zone
+* 240px bottom margin exclusion zone
+* 110px right margin interaction corridor
 
-### The Access Gap
-The average candidate spends 3–4 hours hunting for a single recruiter’s email. The data points toward a single root cause: access.
-
-![HR Sheet 1](/blogs/images/verified-founder-hr-contact-sheet-blog--image-1.png)
-![HR Sheet 2](/blogs/images/verified-founder-hr-contact-sheet-blog--image-2.png)
-    `
-  },
-  {
-    id: 'excel-financial-model-blog',
-    title: 'Mastering Excel Financial Models',
-    excerpt: 'Build robust, scalable financial models for consulting and finance roles.',
-    date: 'May 19, 2026',
-    category: 'Finance',
-    readTime: '6 min',
-    featuredImage: '/blogs/images/excel_financial_model_blog--iamge-1-.png',
-    contentImages: [
-      '/blogs/images/excel_financial_model_blog--image-2-.png'
-    ],
-    content: `
-# Excel Financial Modeling
-High-quality modeling is a core skill for any consulting or finance professional.
-
-![Excel 1](/blogs/images/excel_financial_model_blog--iamge-1-.png)
-![Excel 2](/blogs/images/excel_financial_model_blog--image-2-.png)
+With these visual bounds permanently visible during composition, lyrics and key visual typography remain 100% legible across every target platform.
     `
   }
 ];

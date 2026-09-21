@@ -1,67 +1,93 @@
 import React from 'react';
-import { Layers, Zap, Palette, Video, MousePointer2, Smartphone } from 'lucide-react';
+import { Magnet, Mic2, RotateCcw, FileCode2, Palette, ShieldCheck } from 'lucide-react';
 import './Features.css';
 
-const features = [
+const architectureFeatures = [
   {
-    title: 'Multi-Track NLE Timeline',
-    description: 'Edit like a pro with separate tracks for audio and lyrics. Drag, trim, and sync with industry-standard precision.',
-    icon: <Layers size={24} />,
-    tag: 'PRO'
+    id: 'snapping',
+    title: 'Magnetic Snapping Engine',
+    description: '10px magnetic attraction to playhead needle, clip start/end boundaries, and ruler markers. Eliminates unintentional overlap drift.',
+    icon: <Magnet size={22} />,
+    tag: 'TOLERANCE ±0MS',
+    isHighlight: false
   },
   {
-    title: 'Real-time Waveform Sync',
-    description: 'Visual audio visualization powered by Wavesurfer.js. Stamp lyrics instantly as the music plays.',
-    icon: <Zap size={24} />,
-    tag: 'CORE'
+    id: 'karaoke',
+    title: 'Real-Time Syllable Wipe',
+    description: 'Progressive word-by-word karaoke lighting with typewriter cursor and customizable neon glow strokes. Renders sub-pixel typography.',
+    icon: <Mic2 size={22} />,
+    tag: 'DYNAMIC HIGHLIGHT',
+    isHighlight: true // Has Coral Edge Trace
   },
   {
-    title: 'Deep Theme Engine',
-    description: 'Control every pixel. Over 25+ settings for typography, glow effects, text strokes, and custom logos.',
-    icon: <Palette size={24} />,
-    tag: 'DESIGN'
+    id: 'history',
+    title: '50-Step Immutable History',
+    description: 'Full undo/redo stack capturing every razor split, trim adjustment, drag-and-drop, and live sync stamp. Wired to Ctrl+Z and Ctrl+Y.',
+    icon: <RotateCcw size={22} />,
+    tag: 'LOCAL TRANSACTION',
+    isHighlight: false
   },
   {
-    title: '1080p Production Export',
-    description: 'High-fidelity MP4 generation optimized for YouTube and social media platforms.',
-    icon: <Video size={24} />,
-    tag: 'OUTPUT'
+    id: 'parser',
+    title: 'Universal Ingestion Parser',
+    description: 'Instant client-side decoding of .lrc, .srt, .vtt, and plain lyrics. Automatically calculates smart 3.5s line pacing without server roundtrips.',
+    icon: <FileCode2 size={22} />,
+    tag: 'CLIENT PIPELINE',
+    isHighlight: false
   },
   {
-    title: 'Precision Drag-and-Drop',
-    description: 'Adjust timings by simply dragging lyric blocks on the timeline. No more manual timestamp typing.',
-    icon: <MousePointer2 size={24} />,
-    tag: 'UX'
+    id: 'presets',
+    title: 'Curated Theme Presets',
+    description: 'One-click visual aesthetics: Neon Cyberpunk, Studio Warm, Lo-Fi Chill, Minimalist, and Bold Impact with auto-contrast luminance.',
+    icon: <Palette size={22} />,
+    tag: 'THEME ENGINE',
+    isHighlight: false
   },
   {
-    title: 'Cloud-Ready Workflow',
-    description: 'Manage your library of songs and themes in a single production-ready dashboard.',
-    icon: <Smartphone size={24} />,
-    tag: 'FLOW'
-  },
+    id: 'safezones',
+    title: 'Platform Safe-Zone Masks',
+    description: 'Live interactive overlays for TikTok UI icons, Instagram Reels engagement zones, and mobile status bars to prevent text occlusion.',
+    icon: <ShieldCheck size={22} />,
+    tag: 'REELS / TIKTOK SAFE',
+    isHighlight: false
+  }
 ];
 
 export const Features: React.FC = () => {
   return (
-    <section id="features" className="features-micro">
-      <div className="features-container">
-        <div className="features-header">
-          <h2 className="features-title">Engineered for quality.</h2>
-          <p className="features-subtitle">
-            A powerful suite of tools designed to take your lyric video <br />
-            production from hours to minutes.
-          </p>
+    <section id="architecture" className="allfeat-section allfeat-features">
+      <div className="section-container">
+        {/* Eyebrow Pre-Title */}
+        <div className="section-eyebrow eyebrow-teal">
+          SYSTEM CAPABILITIES & ARCHITECTURE
         </div>
-        
-        <div className="features-grid">
-          {features.map((f, i) => (
-            <div key={i} className="feature-card-micro">
-              <div className="feature-icon-box">
-                {f.icon}
-                <span className="feature-tag">{f.tag}</span>
+
+        {/* Mixed-Weight Display Headline */}
+        <h2 className="section-display-headline">
+          <span className="headline-solid">Built like hardware.</span>{' '}
+          <span className="headline-hollow">Rendered with sub-pixel speed.</span>
+        </h2>
+
+        <p className="section-subtext">
+          Engineered from the ground up for high-precision time synchronization without heavy desktop NLE overhead.
+        </p>
+
+        {/* 6-Card Grid (2-column on desktop) */}
+        <div className="features-grid-2">
+          {architectureFeatures.map((feat) => (
+            <div 
+              key={feat.id} 
+              className={`inset-card feature-card-allfeat ${feat.isHighlight ? 'coral-trace-border' : ''}`}
+            >
+              <div className="card-top-row">
+                <div className="feature-icon-circle">
+                  {feat.icon}
+                </div>
+                <span className="pill-badge">{feat.tag}</span>
               </div>
-              <h3 className="feature-name">{f.title}</h3>
-              <p className="feature-text">{f.description}</p>
+
+              <h3 className="card-title">{feat.title}</h3>
+              <p className="card-body-text">{feat.description}</p>
             </div>
           ))}
         </div>

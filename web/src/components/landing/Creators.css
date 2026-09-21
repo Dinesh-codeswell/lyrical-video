@@ -1,125 +1,78 @@
-.creators-micro {
-  padding: 120px 24px;
-  background-color: var(--color-canvas-white);
+/* ────────────────────────────────────────────────────────────────────────── */
+/* Allfeat Creators / Case Studies Section                                    */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+.creators-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  width: 100%;
+  text-align: left;
 }
 
-.creators-container {
-  max-width: 1100px;
-  margin: 0 auto;
+.creator-case-card {
+  padding: 32px !important;
 }
 
-.creators-layout {
+.project-tag {
+  font-family: var(--font-ui-monospace, monospace);
+  font-size: 11px;
+  color: var(--color-mute-cream, #b8b8b8);
+}
+
+.creator-quote {
+  font-family: var(--font-tasa-orbiter, sans-serif);
+  font-size: 17px;
+  line-height: 1.45;
+  color: var(--color-warm-cream, #fffbeb);
+  margin-bottom: 28px;
+  font-style: normal;
+}
+
+.creator-author-box {
   display: flex;
   align-items: center;
-  gap: 80px;
+  gap: 14px;
+  padding-top: 20px;
+  border-top: 1px solid var(--color-card-edge, #383835);
 }
 
-.creators-visual {
-  flex: 1;
-  position: relative;
+.author-avatar-circle {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background-color: #1a1a1a;
+  box-shadow: var(--shadow-subtle, rgb(56, 56, 53) 0px 0px 0px 1px inset);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-ui-monospace, monospace);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-signal-teal, #00b18c);
 }
 
-.creators-img {
-  width: 100%;
-  border-radius: var(--radius-cards);
-  box-shadow: var(--shadow-xl);
-}
-
-.creators-quote-card {
-  position: absolute;
-  bottom: -40px;
-  right: -40px;
-  background-color: white;
-  padding: 24px;
-  border-radius: var(--radius-cards);
-  box-shadow: var(--shadow-md);
-  max-width: 320px;
-  border: 1px solid var(--color-border-gray);
-}
-
-.quote-text {
-  font-family: var(--font-haffer);
-  font-size: 14px;
-  font-weight: 500;
-  line-height: 1.6;
-  color: var(--color-inkwell);
-  font-style: italic;
-  margin-bottom: 16px;
-}
-
-.quote-author {
+.author-meta {
   display: flex;
   flex-direction: column;
+  gap: 2px;
 }
 
 .author-name {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--color-inkwell);
+  font-family: var(--font-tasa-orbiter, sans-serif);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-warm-cream, #fffbeb);
 }
 
 .author-role {
-  font-size: 11px;
-  color: var(--color-subtle-gray);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.creators-info {
-  flex: 1;
-}
-
-.creators-title {
-  font-family: var(--font-haffer);
-  font-size: 48px;
-  font-weight: 800;
-  color: var(--color-inkwell);
-  letter-spacing: -1px;
-  line-height: 1.1;
-  margin-bottom: 24px;
-}
-
-.text-accent-blue {
-  color: var(--color-midnight-blue);
-}
-
-.creators-description {
-  font-size: 18px;
-  line-height: 1.6;
-  color: var(--color-subtle-gray);
-  margin-bottom: 32px;
-}
-
-.creators-list {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.creators-list li {
-  display: flex;
-  gap: 12px;
-  font-size: 15px;
-  color: var(--color-inkwell);
-  line-height: 1.4;
-}
-
-.list-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: var(--color-midnight-blue);
-  margin-top: 8px;
-  flex-shrink: 0;
+  font-family: var(--font-tasa-orbiter, sans-serif);
+  font-size: 12px;
+  color: var(--color-mute-cream, #b8b8b8);
 }
 
 @media (max-width: 900px) {
-  .creators-layout {
-    flex-direction: column;
-    gap: 100px;
-  }
-  .creators-quote-card {
-    right: 20px;
+  .creators-grid-2 {
+    grid-template-columns: 1fr;
   }
 }

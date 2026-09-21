@@ -1,77 +1,136 @@
-.navbar-micro {
-  height: 64px;
-  background-color: rgba(245, 245, 245, 0.85);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--color-border-gray);
-  position: sticky;
+/* ────────────────────────────────────────────────────────────────────────── */
+/* Allfeat Navigation Capsule & Wordmark                                     */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+.allfeat-header {
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 1000;
-  display: flex;
-  align-items: center;
+  padding: 24px 36px;
+  pointer-events: none;
 }
 
-.navbar-container {
-  max-width: 1200px;
-  width: 100%;
+.header-container {
+  max-width: var(--page-max-width, 1200px);
   margin: 0 auto;
-  padding: 0 var(--spacing-24);
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-.navbar-brand {
-  font-family: var(--font-haffer);
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--color-inkwell);
+/* Fixed Top-Left Wordmark */
+.allfeat-wordmark {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   text-decoration: none;
+  pointer-events: auto;
+  user-select: none;
+}
+
+.brand-glyph {
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.allfeat-wordmark:hover .brand-glyph {
+  transform: scale(1.08);
+}
+
+.brand-title {
+  font-family: var(--font-tasa-orbiter, sans-serif);
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--color-warm-cream, #fffbeb);
+  letter-spacing: -0.02em;
+}
+
+.brand-pill-tag {
+  font-family: var(--font-tasa-orbiter, sans-serif);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--color-mute-cream, #b8b8b8);
+  border: 1px solid var(--color-bronze-veil, #504f4a);
+  border-radius: var(--radius-badges, 900px);
+  padding: 3px 8px;
+  background-color: var(--color-charcoal-stage, #151515);
+}
+
+/* Floating Top-Right Nav Capsule */
+.nav-capsule {
   display: flex;
   align-items: center;
-  gap: var(--spacing-8);
-  letter-spacing: -0.5px;
+  gap: 14px;
+  background-color: var(--color-charcoal-stage, #151515);
+  box-shadow: var(--shadow-subtle, rgb(56, 56, 53) 0px 0px 0px 1px inset);
+  border-radius: var(--radius-nav, 900px);
+  padding: 5px 6px 5px 20px;
+  pointer-events: auto;
 }
 
-.brand-dot {
-  width: 8px;
-  height: 8px;
-  background: var(--gradient-midnight-blue);
-  border-radius: var(--radius-circular);
-}
-
-.navbar-links {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-32);
-}
-
-.nav-link {
-  font-family: var(--font-haffer);
+.capsule-link {
+  font-family: var(--font-tasa-orbiter, sans-serif);
   font-size: 14px;
   font-weight: 500;
-  color: var(--color-subtle-gray);
+  color: var(--color-warm-cream, #fffbeb);
   text-decoration: none;
-  transition: color 0.2s ease;
+  transition: color 0.15s ease;
+  letter-spacing: 0.01em;
 }
 
-.nav-link:hover {
-  color: var(--color-inkwell);
+.capsule-link:hover {
+  color: var(--color-signal-teal, #00b18c);
 }
 
-/* Local primary button to match design exactly */
-.btn-primary-filled {
-  background-color: var(--color-inkwell);
-  color: var(--color-canvas-white);
-  padding: 8px 20px;
-  border-radius: var(--radius-buttons);
-  font-family: var(--font-haffer);
+.capsule-divider {
+  width: 1px;
+  height: 14px;
+  background-color: var(--color-card-edge, #383835);
+}
+
+.capsule-cta-link {
+  text-decoration: none;
+  display: flex;
+}
+
+.btn-pill-primary {
+  border-radius: var(--radius-buttons, 900px);
+  background-color: var(--color-signal-teal, #00b18c);
+  color: var(--color-warm-cream, #fffbeb);
+  font-family: var(--font-tasa-orbiter, sans-serif);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
+  padding: 10px 20px;
   border: none;
   cursor: pointer;
-  transition: opacity 0.2s ease;
+  box-shadow: var(--shadow-subtle-2, rgba(255, 251, 235, 0.25) 0px 0px 0px 2px inset);
+  transition: opacity 0.15s ease, transform 0.1s ease;
+  white-space: nowrap;
 }
 
-.btn-primary-filled:hover {
-  opacity: 0.9;
+.btn-pill-primary:hover {
+  opacity: 0.92;
+  transform: scale(1.02);
+}
+
+@media (max-width: 768px) {
+  .allfeat-header {
+    padding: 16px 20px;
+  }
+  .nav-capsule {
+    padding: 4px 6px 4px 14px;
+    gap: 8px;
+  }
+  .capsule-link {
+    display: none;
+  }
+  .capsule-divider {
+    display: none;
+  }
+  .brand-pill-tag {
+    display: none;
+  }
 }

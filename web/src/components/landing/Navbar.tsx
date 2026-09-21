@@ -4,21 +4,38 @@ import './Navbar.css';
 
 export const Navbar: React.FC = () => {
   return (
-    <nav className="navbar-micro">
-      <div className="navbar-container">
-        <Link to="/" className="navbar-brand">
-          <span className="brand-dot"></span>
-          LyricGen
+    <header className="allfeat-header">
+      <div className="header-container">
+        {/* Fixed Top-Left Wordmark */}
+        <Link to="/" className="allfeat-wordmark">
+          <svg className="brand-glyph" width="22" height="22" viewBox="0 0 24 24" fill="none">
+            <path d="M12 3L21 21H3L12 3Z" stroke="#00b18c" strokeWidth="2" strokeLinejoin="round" />
+            <circle cx="12" cy="3" r="2" fill="#fffbeb" />
+            <circle cx="21" cy="21" r="2" fill="#fffbeb" />
+            <circle cx="3" cy="21" r="2" fill="#fffbeb" />
+            <circle cx="12" cy="14" r="1.5" fill="#00b18c" />
+          </svg>
+          <span className="brand-title">LyricGen</span>
+          <span className="brand-pill-tag">INFRASTRUCTURE</span>
         </Link>
-        <div className="navbar-links">
-          <a href="/#features" className="nav-link">Features</a>
-          <a href="/#creators" className="nav-link">For Creators</a>
-          <Link to="/blog" className="nav-link">Blog</Link>
-          <Link to="/dashboard">
-            <button className="btn-primary-filled">Open Dashboard</button>
+
+        {/* Floating Top-Right Nav Capsule */}
+        <nav className="nav-capsule">
+          <a href="#pipeline" className="capsule-link">Pipeline</a>
+          <span className="capsule-divider" />
+          <a href="#architecture" className="capsule-link">Architecture</a>
+          <span className="capsule-divider" />
+          <a href="#benchmarks" className="capsule-link">Benchmarks</a>
+          <span className="capsule-divider" />
+          <Link to="/blog" className="capsule-link">Dispatches</Link>
+          <span className="capsule-divider" />
+          <Link to="/dashboard" className="capsule-cta-link">
+            <button type="button" className="btn-pill-primary">
+              Launch Studio
+            </button>
           </Link>
-        </div>
+        </nav>
       </div>
-    </nav>
+    </header>
   );
 };

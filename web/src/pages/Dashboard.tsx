@@ -78,6 +78,17 @@ export const Dashboard: React.FC = () => {
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => {
+    if (selectedSong) {
+      const songLabel = songMetadata.artist
+        ? `${songMetadata.artist} - ${songMetadata.title || selectedSong}`
+        : (songMetadata.title || selectedSong);
+      document.title = `LyricGen Studio — ${songLabel}`;
+    } else {
+      document.title = 'LyricGen Studio — Multi-Track NLE Editor';
+    }
+  }, [selectedSong, songMetadata]);
+
   const toggleFullScreen = () => {
     if (stageRef.current) {
       if (!document.fullscreenElement) {

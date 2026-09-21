@@ -1,80 +1,65 @@
-.features-micro {
-  padding: 100px 24px;
-  background-color: var(--color-canvas-white);
+/* ────────────────────────────────────────────────────────────────────────── */
+/* Allfeat Architecture & Features Grid                                      */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+.allfeat-features {
+  border-top: 1px solid var(--color-card-edge, #383835);
+  border-bottom: 1px solid var(--color-card-edge, #383835);
 }
 
-.features-container {
-  max-width: 1100px;
-  margin: 0 auto;
-}
-
-.features-header {
-  text-align: center;
-  margin-bottom: 80px;
-}
-
-.features-title {
-  font-family: var(--font-haffer);
-  font-size: 48px;
-  font-weight: 800;
-  color: var(--color-inkwell);
-  letter-spacing: -1px;
-  margin-bottom: var(--spacing-16);
-}
-
-.features-subtitle {
-  font-size: 18px;
-  color: var(--color-subtle-gray);
-  line-height: 1.5;
-}
-
-.features-grid {
+.features-grid-2 {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: 24px;
+  width: 100%;
+  text-align: left;
 }
 
-.feature-card-micro {
-  background-color: white;
-  border: 1px solid var(--color-border-gray);
-  border-radius: var(--radius-cards);
-  padding: 32px;
-  box-shadow: var(--shadow-subtle);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+.feature-card-allfeat {
+  min-height: 180px;
 }
 
-.feature-card-micro:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-md);
-}
-
-.feature-icon-box {
+.feature-icon-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: var(--color-charcoal-stage, #151515);
+  box-shadow: var(--shadow-subtle, rgb(56, 56, 53) 0px 0px 0px 1px inset);
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  color: var(--color-midnight-blue);
-  margin-bottom: 24px;
+  justify-content: center;
+  color: var(--color-signal-teal, #00b18c);
 }
 
-.feature-tag {
-  font-size: 10px;
-  font-weight: 900;
-  background-color: rgba(81, 139, 219, 0.1);
-  padding: 2px 8px;
-  border-radius: 4px;
-  letter-spacing: 0.1em;
+/* Gradient Accent Border (Coral Edge Trace from Allfeat Spec) */
+.feature-card-allfeat.coral-trace-border {
+  position: relative;
+  box-shadow: none !important;
 }
 
-.feature-name {
-  font-family: var(--font-haffer);
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--color-inkwell);
-  margin-bottom: 12px;
+.feature-card-allfeat.coral-trace-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-cards, 12px);
+  padding: 1px;
+  background: linear-gradient(90deg, #383835 0%, #ff4a5f 50%, #383835 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
 }
 
-.feature-text {
-  font-size: 14px;
-  color: var(--color-subtle-gray);
-  line-height: 1.6;
+.feature-card-allfeat.coral-trace-border .card-title {
+  color: var(--color-warm-cream, #fffbeb);
+}
+
+.feature-card-allfeat.coral-trace-border .feature-icon-circle {
+  color: var(--color-ember-coral, #ff4a5f);
+}
+
+@media (max-width: 900px) {
+  .features-grid-2 {
+    grid-template-columns: 1fr;
+  }
 }
