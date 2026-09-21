@@ -23,14 +23,14 @@ This guide walks you through deploying your **FastAPI + FFmpeg video rendering e
 All core files have been configured in your repository:
 1. [`Dockerfile`](../Dockerfile): Production container with Python 3.11-slim, pre-installed **FFmpeg**, **ImageMagick**, and TrueType fonts.
 2. [`.dockerignore`](../.dockerignore): Keeps your Docker image small and fast to build.
-3. [`railway.json`](../railway.json): Automatically instructs Railway to use the Dockerfile with health checks at `/health`.
-4. [`Procfile`](../Procfile): Fallback process manager for cloud hosts.
-5. [`requirements.txt`](../requirements.txt): Lean production dependencies (excluding heavy desktop GUI libraries).
-6. [`src/api/main.py`](../src/api/main.py):
+3. [`railway.json`](../railway.json): Automatically instructs Railway to build the Dockerfile and launch with health checks at `/health`.
+4. [`requirements.txt`](../requirements.txt): Lean production dependencies (excluding heavy desktop GUI libraries).
+5. [`src/api/main.py`](../src/api/main.py):
    * Dynamic `$PORT` handling (binds to Railway's assigned port).
    * Healthcheck endpoint at `GET /health`.
    * Automatic startup directory verification (`input/audio`, `input/lyrics`, `input/backgrounds`, `output`).
    * Permissive CORS for Vercel production requests.
+6. [`scripts/uvicorn_wrapper.py`](../scripts/uvicorn_wrapper.py): Intercepts and sanitizes any platform CLI arguments, ensuring smooth startup even if the port is passed as an unexpanded string.
 7. [`web/vite.config.ts`](../web/vite.config.ts): Local dev proxy so running locally forwards `/api` directly to `127.0.0.1:8000`.
 8. [`package.json`](../package.json): Single-command local launcher (`npm run dev` runs both backend and frontend together).
 

@@ -28,14 +28,20 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Copy application source code and assets
+# Copy application source code, assets, and scripts
 COPY src/ ./src/
 COPY themes/ ./themes/
 COPY assets/ ./assets/
 COPY input/ ./input/
+COPY scripts/ ./scripts/
+
+# Install uvicorn wrapper to safely handle unexpanded ${PORT:-8000} arguments from any platform runner
+RUN cp scripts/uvicorn_wrapper.py /usr/local/bin/uvicorn && \
+    chmod +x /usr/local/bin/uvicorn
 
 # Ensure all runtime media storage directories exist
 RUN mkdir -p /app/input/audio /app/input/lyrics /app/input/backgrounds /app/output
 
 # Launch FastAPI via Python entrypoint which safely parses Railway's $PORT
 CMD ["python", "-m", "src.api.main"]
+
