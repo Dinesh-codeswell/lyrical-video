@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lyric-video-generator"
+version = "0.1.2"
+description = "Generate lyric videos with timed text animations, timeline editor, and web dashboard"
+keywords = ["lyric-video", "video-generator", "animation", "youtube", "mp4", "ffmpeg", "music-video", "text-animation"]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "moviepy>=2.0.0",
+    "Pillow>=10.0.0",
+    "click>=8.0.0",
+    "numpy>=1.24.0",
+    "PyQt6>=6.6.0",
+    "imageio-ffmpeg>=0.4.9",
+    "fastapi>=0.110.0",
+    "uvicorn>=0.28.0",
+    "python-multipart>=0.0.9",
+    "requests>=2.31.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.scripts]
+lyric-video = "src.cli.main:cli"
+lyric-video-gui = "src.gui.main:main"
+
+[tool.setuptools.packages.find]
+include = ["src*"]

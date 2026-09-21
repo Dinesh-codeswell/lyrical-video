@@ -1,0 +1,11 @@
+moviepy>=2.0.0
+Pillow>=10.0.0
+click>=8.0.0
+numpy>=1.24.0
+PyQt6>=6.6.0
+imageio-ffmpeg>=0.4.9
+fastapi
+uvicorn
+python-multipart
+requests
+python-dotenv

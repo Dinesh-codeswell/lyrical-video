@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "public": true,
+  "name": "lyric-video-generator",
+  "framework": "vite",
+  "installCommand": "npm install",
+  "buildCommand": "npm run build",
+  "outputDirectory": "web/dist",
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "https://lyrics-video-generator-s7tr.onrender.com/api/$1"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
+    }
+  ]
+}

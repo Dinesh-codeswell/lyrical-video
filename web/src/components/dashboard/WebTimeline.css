@@ -1,0 +1,952 @@
+/* ────────────────────────────────────────────────────────────────────────── */
+/* Professional NLE Video Editor Timeline (Adobe Premiere / CapCut Style)    */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+.web-timeline.nle-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 0;
+  background-color: var(--nle-bg-base, #0a0b10);
+  border: 1px solid var(--nle-border, #252837);
+  border-radius: var(--radius-lg, 12px);
+  overflow: hidden;
+  user-select: none;
+  font-family: var(--font-haffer, system-ui, sans-serif);
+}
+
+.web-timeline.tool-razor .clips-area,
+.web-timeline.tool-razor .lyric-clip {
+  cursor: crosshair !important;
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* 1. Timeline Toolbar                                                       */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+.timeline-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 14px;
+  background-color: var(--nle-bg-surface, #12131b);
+  border-bottom: 1px solid var(--nle-border, #252837);
+  z-index: 50;
+  flex-shrink: 0;
+  gap: 12px;
+}
+
+.toolbar-left, .toolbar-center, .toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.divider-v {
+  width: 1px;
+  height: 18px;
+  background-color: var(--nle-border, #252837);
+  margin: 0 4px;
+}
+
+/* Transport Controls */
+.transport-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background-color: var(--nle-bg-card, #171822);
+  border: 1px solid var(--nle-border, #252837);
+  border-radius: 6px;
+  padding: 2px 4px;
+}
+
+.transport-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+  color: var(--silver-whisper, #acadae);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  background: transparent;
+  border: none;
+}
+
+.transport-btn:hover {
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.transport-btn.play-btn {
+  color: #ffffff;
+  background-color: rgba(0, 242, 254, 0.15);
+  border: 1px solid rgba(0, 242, 254, 0.3);
+}
+
+.transport-btn.play-btn:hover {
+  background-color: rgba(0, 242, 254, 0.3);
+  color: #00f2fe;
+}
+
+.transport-btn.play-btn.playing {
+  background-color: rgba(255, 42, 85, 0.2);
+  border-color: rgba(255, 42, 85, 0.4);
+  color: #ff2a55;
+}
+
+/* Timecode Display Box */
+.time-readout-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-ui-monospace, monospace);
+  background: var(--nle-bg-card, #171822);
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--nle-border, #252837);
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.time-readout-box:hover {
+  border-color: var(--nle-accent-cyan, #00f2fe);
+}
+
+.time-format-tag {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--nle-accent-cyan, #00f2fe);
+  background-color: rgba(0, 242, 254, 0.1);
+  padding: 1px 4px;
+  border-radius: 3px;
+  letter-spacing: 0.05em;
+}
+
+.time-digits {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+  letter-spacing: 0.05em;
+  min-width: 82px;
+  text-align: center;
+}
+
+/* Stamp Button */
+.stamp-btn {
+  background: linear-gradient(135deg, #10b981, #059669) !important;
+  color: #ffffff !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  height: 28px !important;
+  padding: 0 10px !important;
+  border: none !important;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.25);
+  transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+}
+
+.stamp-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.4);
+}
+
+/* Tool Selector (Select / Razor) */
+.tool-selector {
+  display: flex;
+  align-items: center;
+  background-color: var(--nle-bg-card, #171822);
+  border: 1px solid var(--nle-border, #252837);
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.tool-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--silver-whisper, #acadae);
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  transition: all 0.15s ease;
+}
+
+.tool-btn:hover {
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.tool-btn.active {
+  background-color: rgba(0, 242, 254, 0.15);
+  color: var(--nle-accent-cyan, #00f2fe);
+  font-weight: 600;
+}
+
+/* Edit Actions Toolbar */
+.edit-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.edit-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--silver-whisper, #acadae);
+  background-color: var(--nle-bg-card, #171822);
+  border: 1px solid var(--nle-border, #252837);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  height: 28px;
+}
+
+.edit-action-btn:hover:not(:disabled) {
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.2);
+  background-color: var(--nle-bg-hover, #212330);
+}
+
+.edit-action-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.edit-action-btn.danger:hover:not(:disabled) {
+  color: #ff2a55;
+  border-color: rgba(255, 42, 85, 0.4);
+  background-color: rgba(255, 42, 85, 0.1);
+}
+
+.edit-action-btn.magnet.active {
+  color: var(--nle-accent-cyan, #00f2fe);
+  border-color: rgba(0, 242, 254, 0.4);
+  background-color: rgba(0, 242, 254, 0.12);
+  box-shadow: 0 0 8px rgba(0, 242, 254, 0.25);
+}
+
+/* Zoom Slider & Controls */
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.zoom-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 5px;
+  background-color: var(--nle-bg-card, #171822);
+  border: 1px solid var(--nle-border, #252837);
+  color: var(--silver-whisper, #acadae);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.zoom-action-btn:hover {
+  color: #ffffff;
+  border-color: var(--nle-accent-cyan, #00f2fe);
+}
+
+.zoom-slider-container {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background-color: var(--nle-bg-card, #171822);
+  border: 1px solid var(--nle-border, #252837);
+  border-radius: 20px;
+  padding: 2px 6px;
+}
+
+.zoom-step-btn {
+  background: transparent;
+  border: none;
+  color: var(--silver-whisper, #acadae);
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.zoom-step-btn:hover {
+  color: var(--nle-accent-cyan, #00f2fe);
+}
+
+.nle-zoom-slider {
+  width: 72px;
+  height: 4px;
+  accent-color: var(--nle-accent-cyan, #00f2fe);
+  cursor: pointer;
+}
+
+.zoom-readout-tag {
+  font-size: 11px;
+  font-family: var(--font-ui-monospace, monospace);
+  color: var(--silver-whisper, #acadae);
+  min-width: 52px;
+  text-align: right;
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* 2. Timeline Body Layout: Track Headers (Left) + Scroller (Right)          */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+.timeline-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Fixed Track Headers Column */
+.track-headers-column {
+  width: var(--nle-track-header-w, 128px);
+  flex-shrink: 0;
+  background-color: var(--nle-bg-surface, #12131b);
+  border-right: 1px solid var(--nle-border, #252837);
+  display: flex;
+  flex-direction: column;
+  z-index: 30;
+}
+
+.header-ruler-spacer {
+  height: 28px;
+  border-bottom: 1px solid var(--nle-border, #252837);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  background-color: var(--nle-bg-surface, #12131b);
+}
+
+.tracks-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--soft-stone, #5a5d72);
+}
+
+.track-header-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--nle-border, #252837);
+  box-sizing: border-box;
+}
+
+.track-header-item:nth-child(2) {
+  height: 52px; /* Video track height */
+}
+
+.track-header-item:nth-child(3) {
+  height: 72px; /* Audio track height */
+}
+
+.track-header-item:nth-child(4) {
+  height: 84px; /* Lyrics track height */
+}
+
+.header-identity {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.track-badge {
+  font-size: 9px;
+  font-weight: 800;
+  padding: 2px 4px;
+  border-radius: 3px;
+  letter-spacing: 0.05em;
+}
+
+.badge-video {
+  background-color: rgba(99, 102, 241, 0.2);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.35);
+}
+
+.badge-audio {
+  background-color: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.badge-lyrics {
+  background-color: rgba(6, 182, 212, 0.2);
+  color: #22d3ee;
+  border: 1px solid rgba(6, 182, 212, 0.35);
+}
+
+.track-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--white-canvas, #ffffff);
+}
+
+.clip-count-pill {
+  font-size: 9px;
+  background-color: var(--nle-bg-card, #171822);
+  color: var(--silver-whisper, #acadae);
+  padding: 1px 5px;
+  border-radius: 9999px;
+  border: 1px solid var(--nle-border, #252837);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.header-tool-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  color: var(--silver-whisper, #acadae);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.header-tool-btn:hover {
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.header-tool-btn.muted {
+  color: #ff2a55;
+  background-color: rgba(255, 42, 85, 0.12);
+  border-color: rgba(255, 42, 85, 0.3);
+}
+
+.header-tool-btn.locked {
+  color: #f59e0b;
+  background-color: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* 3. Scrollable Tracks Area & Ruler                                         */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+.timeline-scroller {
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background-color: var(--nle-bg-canvas, #0a0b10);
+  position: relative;
+}
+
+.tracks-container {
+  height: 100%;
+  position: relative;
+}
+
+/* Timeline Ruler */
+.timeline-ruler {
+  height: 28px;
+  width: 100%;
+  position: relative;
+  background-color: var(--nle-bg-surface, #12131b);
+  border-bottom: 1px solid var(--nle-border, #252837);
+  z-index: 25;
+  cursor: pointer;
+}
+
+.ruler-tick {
+  position: absolute;
+  bottom: 0;
+  width: 1px;
+  background-color: rgba(255, 255, 255, 0.15);
+  pointer-events: none;
+}
+
+.ruler-tick.major {
+  height: 14px;
+  background-color: rgba(255, 255, 255, 0.45);
+}
+
+.ruler-tick.minor {
+  height: 7px;
+  background-color: rgba(255, 255, 255, 0.12);
+}
+
+.ruler-label {
+  position: absolute;
+  bottom: 14px;
+  left: 3px;
+  font-family: var(--font-ui-monospace, monospace);
+  font-size: 9px;
+  color: var(--silver-whisper, #acadae);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Ruler Diamond Markers */
+.ruler-marker-diamond {
+  position: absolute;
+  top: 4px;
+  transform: translateX(-50%);
+  cursor: pointer;
+  z-index: 35;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.diamond-shape {
+  width: 10px;
+  height: 10px;
+  transform: rotate(45deg);
+  border-radius: 1px;
+  box-shadow: 0 0 6px rgba(0, 242, 254, 0.6);
+  transition: transform 0.15s ease;
+}
+
+.ruler-marker-diamond:hover .diamond-shape {
+  transform: rotate(45deg) scale(1.25);
+}
+
+.marker-label-tag {
+  font-size: 8px;
+  color: #ffffff;
+  background-color: rgba(0, 0, 0, 0.7);
+  padding: 1px 3px;
+  border-radius: 2px;
+  margin-top: 1px;
+  white-space: nowrap;
+}
+
+/* Hover Timestamp Badge */
+.ruler-hover-badge {
+  position: absolute;
+  top: 2px;
+  transform: translateX(-50%);
+  background-color: rgba(33, 35, 48, 0.95);
+  border: 1px solid var(--nle-accent-cyan, #00f2fe);
+  color: #ffffff;
+  font-family: var(--font-ui-monospace, monospace);
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  pointer-events: none;
+  z-index: 40;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* 4. Track Lanes                                                            */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+.track {
+  display: flex;
+  border-bottom: 1px solid var(--nle-border, #252837);
+  position: relative;
+  background-color: rgba(255, 255, 255, 0.01);
+}
+
+.track.track-locked {
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(255, 255, 255, 0.015),
+    rgba(255, 255, 255, 0.015) 10px,
+    rgba(0, 0, 0, 0.15) 10px,
+    rgba(0, 0, 0, 0.15) 20px
+  );
+  pointer-events: none;
+  opacity: 0.75;
+}
+
+.video-track {
+  height: 52px;
+  background-color: rgba(99, 102, 241, 0.03);
+}
+
+.audio-track {
+  height: 72px;
+  background-color: rgba(16, 185, 129, 0.02);
+}
+
+.waveform-wrapper {
+  width: 100%;
+  height: 100%;
+}
+
+.lyrics-track {
+  height: 84px;
+  background-color: rgba(6, 182, 212, 0.025);
+}
+
+.clips-area {
+  flex: 1;
+  position: relative;
+  height: 100%;
+}
+
+/* Video Track Clip */
+.video-clip {
+  position: absolute;
+  top: 5px;
+  bottom: 5px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.35), rgba(79, 70, 229, 0.2));
+  border: 1px solid rgba(99, 102, 241, 0.6);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  z-index: 5;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.change-bg-btn {
+  background-color: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.change-bg-btn:hover {
+  background-color: #6366f1;
+  transform: scale(1.1);
+}
+
+.empty-track-prompt {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--soft-stone, #5a5d72);
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.empty-track-prompt:hover {
+  color: var(--white-canvas, #ffffff);
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* 5. Pro Lyric Clip Capsules (CapCut / Premiere Pro Polish)                 */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+.lyric-clip {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  background: linear-gradient(180deg, rgba(14, 116, 144, 0.5) 0%, rgba(8, 51, 68, 0.7) 100%);
+  border: 1px solid var(--nle-clip-lyric-border, #06b6d4);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  cursor: grab;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+  user-select: none;
+  z-index: 5;
+}
+
+.lyric-clip:hover {
+  background: linear-gradient(180deg, rgba(14, 116, 144, 0.65) 0%, rgba(8, 51, 68, 0.85) 100%);
+  border-color: #38bdf8;
+  box-shadow: 0 4px 14px rgba(6, 182, 212, 0.3);
+}
+
+.lyric-clip.selected {
+  border: 2px solid var(--nle-accent-cyan, #00f2fe);
+  box-shadow: 0 0 16px rgba(0, 242, 254, 0.45);
+  z-index: 15;
+}
+
+.lyric-clip.active-playing {
+  border-color: #22d3ee;
+  background: linear-gradient(180deg, rgba(6, 182, 212, 0.45) 0%, rgba(14, 116, 144, 0.7) 100%);
+}
+
+.lyric-clip:active {
+  cursor: grabbing;
+}
+
+.clip-content {
+  flex: 1;
+  padding: 0 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.clip-meta-tag {
+  margin-bottom: 2px;
+}
+
+.clip-duration-tag {
+  font-family: var(--font-ui-monospace, monospace);
+  font-size: 8px;
+  font-weight: 700;
+  color: var(--nle-accent-cyan, #00f2fe);
+  background-color: rgba(0, 0, 0, 0.4);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.clip-text {
+  font-size: 11px;
+  font-weight: 500;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* Quick Edit Pencil */
+.clip-quick-edit-btn {
+  position: absolute;
+  top: 4px;
+  right: 12px;
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  background-color: rgba(0, 0, 0, 0.5);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+  cursor: pointer;
+  border: none;
+  z-index: 12;
+}
+
+.lyric-clip:hover .clip-quick-edit-btn {
+  opacity: 1;
+}
+
+.clip-quick-edit-btn:hover {
+  background-color: var(--nle-accent-cyan, #00f2fe);
+  color: #000000;
+}
+
+/* Resize Handles */
+.resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  cursor: col-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  transition: background-color 0.15s ease;
+}
+
+.resize-handle:hover {
+  background-color: rgba(0, 242, 254, 0.4);
+}
+
+.resize-handle.left {
+  left: 0;
+}
+
+.resize-handle.right {
+  right: 0;
+}
+
+.handle-notch {
+  width: 2px;
+  height: 16px;
+  background-color: rgba(255, 255, 255, 0.5);
+  border-radius: 1px;
+}
+
+.resize-handle:hover .handle-notch {
+  background-color: var(--nle-accent-cyan, #00f2fe);
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* 6. Magnetic Snapping Guide Line                                           */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+.magnetic-snap-guide {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background-color: var(--nle-snap-line, #00f2fe);
+  box-shadow: 0 0 10px var(--nle-snap-line, #00f2fe), 0 0 20px rgba(0, 242, 254, 0.5);
+  z-index: 90;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.snap-time-tag {
+  position: absolute;
+  top: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: var(--nle-accent-cyan, #00f2fe);
+  color: #000000;
+  font-family: var(--font-ui-monospace, monospace);
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* 7. Phantom / Ghost Hover Cursor Guide                                     */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+.phantom-hover-guide {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.4),
+    rgba(255, 255, 255, 0.4) 4px,
+    transparent 4px,
+    transparent 8px
+  );
+  z-index: 60;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* 8. CapCut / Premiere Pro Playhead Needle                                  */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+.playhead-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background-color: var(--nle-playhead, #ff2a55);
+  box-shadow: 0 0 8px rgba(255, 42, 85, 0.6);
+  z-index: 100;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.playhead-head {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: auto;
+  cursor: ew-resize;
+}
+
+.playhead-handle-flag {
+  width: 14px;
+  height: 18px;
+  background-color: var(--nle-playhead, #ff2a55);
+  clip-path: polygon(0 0, 100% 0, 100% 65%, 50% 100%, 0 65%);
+  box-shadow: 0 2px 8px rgba(255, 42, 85, 0.5);
+  transition: transform 0.1s ease;
+}
+
+.playhead-head:hover .playhead-handle-flag {
+  transform: scale(1.15);
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* 9. Edit Lyric Modal                                                       */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+.lyric-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lyric-modal {
+  background-color: var(--nle-bg-surface, #12131b);
+  border: 1px solid var(--nle-border, #252837);
+  border-radius: var(--radius-lg, 12px);
+  padding: 24px;
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+}
+
+.lyric-modal h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--white-canvas, #ffffff);
+}
+
+.lyric-modal textarea {
+  background-color: var(--nle-bg-card, #171822);
+  border: 1px solid var(--nle-border, #252837);
+  color: var(--white-canvas, #ffffff);
+  border-radius: 8px;
+  padding: 12px;
+  min-height: 110px;
+  font-family: var(--font-haffer, sans-serif);
+  font-size: 14px;
+  resize: none;
+  outline: none;
+  line-height: 1.5;
+  transition: border-color 0.15s ease;
+}
+
+.lyric-modal textarea:focus {
+  border-color: var(--nle-accent-cyan, #00f2fe);
+  box-shadow: 0 0 10px rgba(0, 242, 254, 0.2);
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}

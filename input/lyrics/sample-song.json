@@ -1,0 +1,16 @@
+{
+  "title": "Sample Song",
+  "artist": "Demo Artist",
+  "bpm": 120.0,
+  "intro_end_time": 3.0,
+  "outro_start_time": 25.0,
+  "lyrics": [
+    { "time": 0.0, "text": "" },
+    { "time": 3.0, "text": "Welcome to Lyric Video Generator" },
+    { "time": 7.0, "text": "Create stunning animated typography videos" },
+    { "time": 11.5, "text": "Sync your music with precision timing" },
+    { "time": 16.0, "text": "Customize themes, fonts, and background loops" },
+    { "time": 21.0, "text": "Export in high definition 1080p MP4" },
+    { "time": 26.0, "text": "" }
+  ]
+}

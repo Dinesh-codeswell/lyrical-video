@@ -1,0 +1,642 @@
+/* ────────────────────────────────────────────────────────────────────────── */
+/* Unified Studio Drawer & Primary Tool Rail                                 */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+.studio-drawer-wrapper {
+  display: flex;
+  height: 100%;
+  background-color: var(--nle-bg-surface, #12131b);
+  border: 1px solid var(--nle-border, #252837);
+  border-radius: var(--radius-lg, 12px);
+  overflow: hidden;
+  transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+  z-index: 20;
+}
+
+.studio-drawer-wrapper.drawer-open {
+  width: 380px;
+}
+
+.studio-drawer-wrapper.drawer-collapsed {
+  width: 56px;
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* 1. Primary Tool Rail (56px Icon Column)                                   */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+.studio-tool-rail {
+  width: 56px;
+  flex-shrink: 0;
+  background-color: var(--nle-bg-surface, #12131b);
+  border-right: 1px solid var(--nle-border, #252837);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  user-select: none;
+}
+
+.tool-rail-top {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.rail-tab-btn {
+  width: 44px;
+  height: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border-radius: 8px;
+  color: var(--silver-whisper, #acadae);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.rail-tab-label {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.rail-tab-btn:hover {
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+.rail-tab-btn.active {
+  color: var(--nle-accent-cyan, #00f2fe);
+  background-color: rgba(0, 242, 254, 0.1);
+  font-weight: 600;
+}
+
+.rail-tab-btn.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background-color: var(--nle-accent-cyan, #00f2fe);
+  box-shadow: 0 0 8px var(--nle-accent-cyan, #00f2fe);
+}
+
+.tool-rail-bottom {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding-top: 6px;
+  border-top: 1px solid var(--nle-border, #252837);
+}
+
+.rail-collapse-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  color: var(--silver-whisper, #acadae);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.rail-collapse-btn:hover {
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* 2. Drawer Content Panel (324px body)                                      */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+.studio-drawer-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--nle-bg-card, #171822);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.drawer-panel-header {
+  height: 48px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--nle-border, #252837);
+  background-color: var(--nle-bg-surface, #12131b);
+  flex-shrink: 0;
+}
+
+.drawer-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.drawer-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.02em;
+}
+
+.drawer-badge {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--nle-accent-cyan, #00f2fe);
+  background-color: rgba(0, 242, 254, 0.12);
+  padding: 2px 6px;
+  border-radius: 9999px;
+  letter-spacing: 0.05em;
+}
+
+.drawer-close-btn {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  color: var(--silver-whisper, #acadae);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.drawer-close-btn:hover {
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.drawer-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.drawer-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.media-tab-content {
+  height: 100%;
+}
+
+.media-tab-content .song-selector {
+  height: 100%;
+}
+
+.section-instruction {
+  font-size: 12px;
+  color: var(--silver-whisper, #acadae);
+  line-height: 1.4;
+  margin-bottom: 4px;
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* 3. Form Controls & Group Inputs                                           */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.group-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--silver-whisper, #acadae);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.sub-label {
+  font-size: 11px;
+  color: var(--silver-whisper, #acadae);
+}
+
+.group-header-flex {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.group-value-pill {
+  font-family: var(--font-ui-monospace, monospace);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--nle-accent-cyan, #00f2fe);
+  background-color: rgba(0, 242, 254, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.pro-select {
+  width: 100%;
+  background-color: var(--nle-bg-surface, #12131b);
+  border: 1px solid var(--nle-border, #252837);
+  color: #ffffff;
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.pro-select:focus {
+  border-color: var(--nle-accent-cyan, #00f2fe);
+}
+
+.pro-range {
+  width: 100%;
+  accent-color: var(--nle-accent-cyan, #00f2fe);
+  cursor: pointer;
+  height: 4px;
+}
+
+.pro-text-input {
+  width: 100%;
+  background-color: var(--nle-bg-surface, #12131b);
+  border: 1px solid var(--nle-border, #252837);
+  color: #ffffff;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  outline: none;
+}
+
+.pro-text-input:focus {
+  border-color: var(--nle-accent-cyan, #00f2fe);
+}
+
+/* Color Picker Row */
+.color-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pro-color-swatch {
+  width: 32px;
+  height: 28px;
+  border-radius: 4px;
+  border: 1px solid var(--nle-border, #252837);
+  cursor: pointer;
+  background: none;
+  padding: 0;
+}
+
+.pro-color-swatch-sm {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: 1px solid var(--nle-border, #252837);
+  cursor: pointer;
+  background: none;
+  padding: 0;
+}
+
+.pro-color-hex {
+  width: 80px;
+  background-color: var(--nle-bg-surface, #12131b);
+  border: 1px solid var(--nle-border, #252837);
+  color: #ffffff;
+  font-family: var(--font-ui-monospace, monospace);
+  font-size: 11px;
+  padding: 5px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+/* Segmented Alignment Buttons */
+.segmented-align-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 4px;
+  background-color: var(--nle-bg-surface, #12131b);
+  border: 1px solid var(--nle-border, #252837);
+  border-radius: 6px;
+  padding: 3px;
+}
+
+.align-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--silver-whisper, #acadae);
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  transition: all 0.15s ease;
+}
+
+.align-btn:hover {
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.align-btn.active {
+  color: var(--nle-accent-cyan, #00f2fe);
+  background-color: rgba(0, 242, 254, 0.12);
+  font-weight: 600;
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* 4. Curated Presets Vertical Grid                                          */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+.presets-vertical-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.preset-card-pro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background-color: var(--nle-bg-surface, #12131b);
+  border: 1px solid var(--nle-border, #252837);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.preset-card-pro:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+.preset-card-pro.active {
+  border-color: var(--nle-accent-cyan, #00f2fe);
+  background-color: rgba(0, 242, 254, 0.08);
+}
+
+.preset-card-headline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.preset-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.preset-badge-tag {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--nle-accent-cyan, #00f2fe);
+  background-color: rgba(0, 242, 254, 0.1);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.preset-description {
+  font-size: 10px;
+  color: var(--silver-whisper, #acadae);
+  max-width: 180px;
+}
+
+.preset-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.preset-swatches-pro {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.swatch-circle {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.preset-active-check {
+  color: var(--nle-accent-cyan, #00f2fe);
+  display: flex;
+  align-items: center;
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* 5. Motion Styles List                                                     */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+.motion-styles-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.motion-style-card {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background-color: var(--nle-bg-surface, #12131b);
+  border: 1px solid var(--nle-border, #252837);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.motion-style-card:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+.motion-style-card.active {
+  border-color: var(--nle-accent-cyan, #00f2fe);
+  background-color: rgba(0, 242, 254, 0.08);
+}
+
+.motion-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+.motion-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.motion-badge {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--nle-accent-cyan, #00f2fe);
+  background-color: rgba(0, 242, 254, 0.1);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.motion-desc {
+  font-size: 11px;
+  color: var(--silver-whisper, #acadae);
+  line-height: 1.3;
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* 6. Karaoke & Highlights Controls                                          */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+.segmented-toggle-3 {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr 1fr;
+  gap: 3px;
+  background-color: var(--nle-bg-surface, #12131b);
+  border: 1px solid var(--nle-border, #252837);
+  border-radius: 6px;
+  padding: 3px;
+}
+
+.toggle-option {
+  padding: 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--silver-whisper, #acadae);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+}
+
+.toggle-option:hover {
+  color: #ffffff;
+}
+
+.toggle-option.active {
+  color: var(--nle-accent-cyan, #00f2fe);
+  background-color: rgba(0, 242, 254, 0.12);
+  font-weight: 600;
+}
+
+.effects-toggles-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.pro-checkbox-card {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 6px;
+  background-color: var(--nle-bg-surface, #12131b);
+  border: 1px solid var(--nle-border, #252837);
+  font-size: 11px;
+  font-weight: 500;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.pro-checkbox-card input {
+  accent-color: var(--nle-accent-cyan, #00f2fe);
+}
+
+.gradient-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* 7. Canvas Aspect Ratio Grid                                               */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+.aspect-options-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.aspect-option-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 10px;
+  border-radius: 8px;
+  background-color: var(--nle-bg-surface, #12131b);
+  border: 1px solid var(--nle-border, #252837);
+  color: var(--silver-whisper, #acadae);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+
+.aspect-option-card:hover {
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.aspect-option-card.active {
+  color: var(--nle-accent-cyan, #00f2fe);
+  border-color: var(--nle-accent-cyan, #00f2fe);
+  background-color: rgba(0, 242, 254, 0.08);
+}
+
+.aspect-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.aspect-sub {
+  font-size: 9px;
+  color: var(--silver-whisper, #acadae);
+  line-height: 1.2;
+}
+
+.mt-2 {
+  margin-top: 8px;
+}
+
+.mt-4 {
+  margin-top: 16px;
+}
+
+.mb-2 {
+  margin-bottom: 8px;
+}

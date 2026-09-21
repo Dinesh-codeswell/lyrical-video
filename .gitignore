@@ -1,0 +1,93 @@
+# ==========================================
+# Lyric Video Generator - .gitignore
+# ==========================================
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+
+# --- PyInstaller & Desktop Packaging ---
+*.spec.bak
+*.dmg
+*.exe
+*.app/
+
+# --- Virtual Environments ---
+venv/
+.venv/
+env/
+ENV/
+.python-version
+
+# --- Node / Web Frontend ---
+node_modules/
+web/node_modules/
+web/dist/
+dist-ssr/
+*.local
+*.tsbuildinfo
+.eslintcache
+
+# --- Vercel / Deployment ---
+.vercel/
+
+# --- Environment & Secrets ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# --- IDE & Editors ---
+.vscode/
+.idea/
+*.swp
+*.swo
+.claude/
+.gemini/
+
+# --- Operating System ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Logs ---
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# --- Input / Output Media ---
+# Output folder contents (keep folder structure via .gitkeep)
+output/*
+!output/.gitkeep
+
+# User-uploaded audio (keep directory and sample files)
+input/audio/*
+!input/audio/.gitkeep
+!input/audio/sample*
+
+# User-uploaded lyrics (keep directory and sample files)
+input/lyrics/*
+!input/lyrics/.gitkeep
+!input/lyrics/sample*
+
+# Preset backgrounds (tracked for default deployment)
+input/backgrounds/*
+!input/backgrounds/.gitkeep
+!input/backgrounds/*.mp4
+!input/backgrounds/*.mov
+!input/backgrounds/*.webm
+
+# Themes (keep default.json public, ignore custom runtime themes if any)
+themes/*.json
+!themes/default.json
