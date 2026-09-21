@@ -63,15 +63,93 @@ export const Dashboard: React.FC = () => {
   const stageHeight = previewDimensions.height || 540;
   const lineHeight = (theme.font_size * theme.line_spacing) * previewScale;
 
-  // Visual Effects Computation
+  // Visual Effects & OpenShot VFX Computation (Phase 2)
   const activeEffect = useMemo(() => {
     return VISUAL_EFFECTS.find(e => e.id === theme.active_filter);
   }, [theme.active_filter]);
 
+  // ChromaKey Color Matrix Calculation (OpenShot ChromaKey)
+  const chromaMatrixValues = useMemo(() => {
+    if (!theme.chroma_key_enabled) return undefined;
+    const hex = (theme.chroma_key_color || '#00ff00').replace('#', '');
+    const r = parseInt(hex.substring(0, 2), 16) || 0;
+    const g = parseInt(hex.substring(2, 4), 16) || 0;
+    const b = parseInt(hex.substring(4, 6), 16) || 0;
+    
+    const fuzzMult = 1.5 + (theme.chroma_key_fuzz || 35) / 25; // 1.9 to 4.7
+    
+    if (g >= r && g >= b) {
+      // Key out green dominant screen
+      return `1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  1 -${fuzzMult.toFixed(2)} 1 1 0`;
+    } else if (b >= r && b >= g) {
+      // Key out blue screen
+      return `1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  1 1 -${fuzzMult.toFixed(2)} 1 0`;
+    } else {
+      // Key out red/magenta screen
+      return `1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  -${fuzzMult.toFixed(2)} 1 1 1 0`;
+    }
+  }, [theme.chroma_key_enabled, theme.chroma_key_color, theme.chroma_key_fuzz]);
+
   const activeFilterCSS = useMemo(() => {
-    if (!activeEffect?.cssFilter || theme.active_filter === 'none') return undefined;
-    return activeEffect.cssFilter;
-  }, [activeEffect, theme.active_filter]);
+    const filters: string[] = [];
+
+    // 1. OpenShot Defocus Background Blur
+    if (theme.background_blur && theme.background_blur > 0) {
+      filters.push(`blur(${theme.background_blur}px)`);
+    }
+
+    // 2. Curated Visual LUT / Color Filter
+    if (activeEffect?.cssFilter && theme.active_filter !== 'none') {
+      filters.push(activeEffect.cssFilter);
+    }
+
+    // 3. OpenShot Liquid Wave Distortion
+    if (theme.wave_enabled || theme.active_filter === 'liquid-wave') {
+      filters.push('url(#openshot-wave-filter)');
+    }
+
+    // 4. OpenShot ChromaKey Removal
+    if (theme.chroma_key_enabled) {
+      filters.push('url(#openshot-chroma-filter)');
+    }
+
+    return filters.length > 0 ? filters.join(' ') : undefined;
+  }, [activeEffect, theme.active_filter, theme.background_blur, theme.wave_enabled, theme.chroma_key_enabled]);
+
+  // OpenShot Cinematic Letterbox Bars Calculation
+  const letterboxStyle = useMemo(() => {
+    if (!theme.letterbox_bars || theme.letterbox_bars === 'none') return null;
+
+    const barColor = theme.letterbox_color || '#000000';
+    let targetRatio = 2.39;
+    if (theme.letterbox_bars === '1.85:1') targetRatio = 1.85;
+    if (theme.letterbox_bars === '4:3') targetRatio = 4 / 3;
+
+    let frameRatio = 16 / 9;
+    if (theme.aspect_ratio === '9:16') frameRatio = 9 / 16;
+    if (theme.aspect_ratio === '1:1') frameRatio = 1;
+    if (theme.aspect_ratio === '4:5') frameRatio = 4 / 5;
+
+    if (targetRatio > frameRatio) {
+      // Bars on top and bottom
+      const visiblePercent = (frameRatio / targetRatio) * 100;
+      const barHeightPercent = Math.max(0, (100 - visiblePercent) / 2);
+      return {
+        type: 'horizontal' as const,
+        barPercent: barHeightPercent,
+        color: barColor
+      };
+    } else {
+      // Bars on left and right (pillarbox)
+      const visiblePercent = (targetRatio / frameRatio) * 100;
+      const barWidthPercent = Math.max(0, (100 - visiblePercent) / 2);
+      return {
+        type: 'vertical' as const,
+        barPercent: barWidthPercent,
+        color: barColor
+      };
+    }
+  }, [theme.letterbox_bars, theme.letterbox_color, theme.aspect_ratio]);
 
   useEffect(() => {
     if (!stageRef.current) return;
@@ -871,6 +949,83 @@ export const Dashboard: React.FC = () => {
                     </div>
                   </div>
                 )}
+
+                {/* Layer 7: OpenShot 8-Bit Mosaic Pixelate */}
+                {(theme.pixelate_enabled || theme.active_filter === 'pixelate-mosaic') && (
+                  <div 
+                    className="compositor-layer layer-pixelate-mosaic" 
+                    style={{
+                      backgroundSize: `${Math.max(4, theme.pixelate_block_size || 16)}px ${Math.max(4, theme.pixelate_block_size || 16)}px`
+                    }} 
+                  />
+                )}
+
+                {/* Layer 8: OpenShot Cinematic Letterbox Matte Bars */}
+                {letterboxStyle && (
+                  <div className="compositor-layer layer-letterbox-matte">
+                    {letterboxStyle.type === 'horizontal' ? (
+                      <>
+                        <div 
+                          className="letterbox-bar letterbox-bar-top" 
+                          style={{ height: `${letterboxStyle.barPercent}%`, backgroundColor: letterboxStyle.color }} 
+                        />
+                        <div 
+                          className="letterbox-bar letterbox-bar-bottom" 
+                          style={{ height: `${letterboxStyle.barPercent}%`, backgroundColor: letterboxStyle.color }} 
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <div 
+                          className="letterbox-bar letterbox-bar-left" 
+                          style={{ width: `${letterboxStyle.barPercent}%`, backgroundColor: letterboxStyle.color }} 
+                        />
+                        <div 
+                          className="letterbox-bar letterbox-bar-right" 
+                          style={{ width: `${letterboxStyle.barPercent}%`, backgroundColor: letterboxStyle.color }} 
+                        />
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* SVG Definitions for OpenShot GPU Filters */}
+                <svg className="svg-vfx-defs" style={{ position: 'absolute', width: 0, height: 0, pointerEvents: 'none' }} aria-hidden="true">
+                  <defs>
+                    {/* OpenShot Liquid Wave Displacement */}
+                    <filter id="openshot-wave-filter" x="-10%" y="-10%" width="120%" height="120%">
+                      <feTurbulence 
+                        type="turbulence" 
+                        baseFrequency={`${0.012 * (theme.wave_speed || 1)} ${0.02 * (theme.wave_speed || 1)}`} 
+                        numOctaves="2" 
+                        result="waveTurbulence" 
+                      />
+                      <feDisplacementMap 
+                        in="SourceGraphic" 
+                        in2="waveTurbulence" 
+                        scale={theme.wave_amplitude || 15} 
+                        xChannelSelector="R" 
+                        yChannelSelector="G" 
+                      />
+                    </filter>
+
+                    {/* OpenShot ChromaKey Matrix */}
+                    {chromaMatrixValues && (
+                      <filter id="openshot-chroma-filter">
+                        <feColorMatrix type="matrix" values={chromaMatrixValues} />
+                      </filter>
+                    )}
+
+                    {/* OpenShot Pixelate Filter */}
+                    <filter id="openshot-pixelate-filter" x="0%" y="0%" width="100%" height="100%">
+                      <feFlood x="2" y="2" height="2" width="2"/>
+                      <feComposite width={Math.max(4, theme.pixelate_block_size || 16)} height={Math.max(4, theme.pixelate_block_size || 16)}/>
+                      <feTile result="pixelTile"/>
+                      <feComposite in="SourceGraphic" in2="pixelTile" operator="in"/>
+                      <feMorphology operator="dilate" radius={Math.max(1, Math.floor((theme.pixelate_block_size || 16) / 2))}/>
+                    </filter>
+                  </defs>
+                </svg>
 
                 {/* Fullscreen Trigger */}
                 <button className="stage-fullscreen-btn" onClick={toggleFullScreen} title="Fullscreen Preview">

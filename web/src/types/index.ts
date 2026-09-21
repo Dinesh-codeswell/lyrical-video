@@ -40,6 +40,19 @@ export interface Theme {
   // Transitions System (OpenShot Mask / Wipe & Dissolves)
   active_transition: TransitionType;
   transition_duration: number; // 0.2 to 2.0 seconds
+
+  // OpenShot-Inspired Advanced VFX Engine (Phase 2)
+  background_blur: number; // 0 to 30 px (Gaussian Defocus)
+  letterbox_bars: 'none' | '2.39:1' | '1.85:1' | '4:3';
+  letterbox_color: string;
+  pixelate_enabled: boolean;
+  pixelate_block_size: number; // 2 to 48 px
+  wave_enabled: boolean;
+  wave_amplitude: number; // 0 to 50
+  wave_speed: number; // 0.2 to 3.0
+  chroma_key_enabled: boolean;
+  chroma_key_color: string;
+  chroma_key_fuzz: number; // 10 to 80
 }
 
 export type TransitionType =
@@ -176,6 +189,8 @@ export type VideoFilterType =
   | 'film-grain'
   | 'vhs-glitch'
   | 'crt-monitor'
+  | 'liquid-wave'
+  | 'pixelate-mosaic'
   | 'cinematic-vignette'
   | 'prism-leak';
 
@@ -193,6 +208,7 @@ export interface VisualEffect {
   description: string;
   cssFilter?: string;
   previewGradient: string;
+  previewImage?: string;
 }
 
 export interface LyricClip {
@@ -253,6 +269,19 @@ export const DEFAULTS: Theme = {
   // Transitions System
   active_transition: "crossfade",
   transition_duration: 0.4,
+
+  // OpenShot-Inspired Advanced VFX Engine (Phase 2)
+  background_blur: 0,
+  letterbox_bars: "none",
+  letterbox_color: "#000000",
+  pixelate_enabled: false,
+  pixelate_block_size: 16,
+  wave_enabled: false,
+  wave_amplitude: 15,
+  wave_speed: 1.0,
+  chroma_key_enabled: false,
+  chroma_key_color: "#00ff00",
+  chroma_key_fuzz: 35,
 };
 
 export interface ThemePreset {
@@ -421,6 +450,17 @@ export const VISUAL_EFFECTS: VisualEffect[] = [
     description: 'Hollywood blockbuster grade with cool shadows and warm highlights',
     cssFilter: 'contrast(1.18) saturate(1.3) hue-rotate(-12deg)',
     previewGradient: 'linear-gradient(135deg, #008080, #ff8c00)',
+    previewImage: '/assets/previews/teal-orange.jpg',
+  },
+  {
+    id: 'cyberpunk-neon',
+    name: 'Cyberpunk Neon',
+    category: 'color',
+    tag: 'HYPER GLOW',
+    description: 'High-contrast electric cyan and saturated ultraviolet hues',
+    cssFilter: 'contrast(1.3) saturate(1.75) hue-rotate(180deg)',
+    previewGradient: 'linear-gradient(135deg, #06b6d4, #ec4899)',
+    previewImage: '/assets/previews/cyberpunk-neon.jpg',
   },
   {
     id: 'vintage-1977',
@@ -450,15 +490,6 @@ export const VISUAL_EFFECTS: VisualEffect[] = [
     previewGradient: 'linear-gradient(135deg, #fbcfe8, #a7f3d0)',
   },
   {
-    id: 'cyberpunk-neon',
-    name: 'Cyberpunk Neon',
-    category: 'color',
-    tag: 'HYPER GLOW',
-    description: 'High-contrast electric cyan and saturated ultraviolet hues',
-    cssFilter: 'contrast(1.3) saturate(1.75) hue-rotate(180deg)',
-    previewGradient: 'linear-gradient(135deg, #06b6d4, #ec4899)',
-  },
-  {
     id: 'sunset-gold',
     name: 'Golden Hour',
     category: 'color',
@@ -474,6 +505,7 @@ export const VISUAL_EFFECTS: VisualEffect[] = [
     tag: 'ANALOG TEXTURE',
     description: 'Authentic Kodak motion picture organic film noise texture',
     previewGradient: 'linear-gradient(135deg, #3f3f46, #71717a)',
+    previewImage: '/assets/previews/film-grain.jpg',
   },
   {
     id: 'vhs-glitch',
@@ -482,6 +514,7 @@ export const VISUAL_EFFECTS: VisualEffect[] = [
     tag: 'CRT GLITCH',
     description: 'Analog video tape scanlines, chromatic RGB shift and tracking flutter',
     previewGradient: 'linear-gradient(135deg, #06b6d4, #f43f5e)',
+    previewImage: '/assets/previews/vhs-glitch.jpg',
   },
   {
     id: 'crt-monitor',
@@ -490,6 +523,25 @@ export const VISUAL_EFFECTS: VisualEffect[] = [
     tag: 'RASTER',
     description: 'Cathode-ray tube phosphor scanlines and retro monitor curvature',
     previewGradient: 'linear-gradient(135deg, #10b981, #064e3b)',
+    previewImage: '/assets/previews/crt-monitor.jpg',
+  },
+  {
+    id: 'liquid-wave',
+    name: 'OpenShot Liquid Wave',
+    category: 'texture',
+    tag: 'OPENSHOT WAVE',
+    description: 'Psychedelic fluid ripple displacement and liquid wave distortion',
+    previewGradient: 'linear-gradient(135deg, #06b6d4, #a855f7)',
+    previewImage: '/assets/previews/liquid-wave.jpg',
+  },
+  {
+    id: 'pixelate-mosaic',
+    name: 'OpenShot 8-Bit Mosaic',
+    category: 'retro',
+    tag: 'OPENSHOT PIXEL',
+    description: 'Retro 8-bit arcade mosaic block quantization shader',
+    previewGradient: 'linear-gradient(135deg, #ec4899, #3b82f6)',
+    previewImage: '/assets/previews/pixelate-mosaic.jpg',
   },
   {
     id: 'cinematic-vignette',

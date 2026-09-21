@@ -664,6 +664,58 @@
   pointer-events: none;
 }
 
+/* Phase 2: OpenShot 8-Bit Mosaic Pixelate */
+.layer-pixelate-mosaic {
+  z-index: 4;
+  pointer-events: none;
+  background-image: 
+    linear-gradient(to right, rgba(0, 0, 0, 0.35) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.35) 1px, transparent 1px);
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+}
+
+/* Phase 2: OpenShot Cinematic Letterbox Matte */
+.layer-letterbox-matte {
+  z-index: 7;
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+}
+
+.letterbox-bar {
+  position: absolute;
+  pointer-events: none;
+  background-color: #000000;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 0 16px rgba(0, 0, 0, 0.85);
+}
+
+.letterbox-bar-top {
+  top: 0;
+  left: 0;
+  right: 0;
+}
+
+.letterbox-bar-bottom {
+  bottom: 0;
+  left: 0;
+  right: 0;
+}
+
+.letterbox-bar-left {
+  top: 0;
+  bottom: 0;
+  left: 0;
+}
+
+.letterbox-bar-right {
+  top: 0;
+  bottom: 0;
+  right: 0;
+}
+
 /* Layer 6: Mobile Safe Zones Overlay */
 .layer-safe-zones {
   z-index: 40;

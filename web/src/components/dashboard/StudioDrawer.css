@@ -35,26 +35,47 @@
   flex-direction: column;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 0;
+  padding: 6px 0;
   user-select: none;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .tool-rail-top {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   width: 100%;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 2px 0 6px 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+.tool-rail-top::-webkit-scrollbar {
+  width: 3px;
+}
+
+.tool-rail-top::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 9999px;
 }
 
 .rail-tab-btn {
   width: 44px;
-  height: 48px;
+  min-height: 44px;
+  height: 44px;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 2px;
   border-radius: 8px;
   color: var(--silver-whisper, #acadae);
   background: transparent;
@@ -99,6 +120,7 @@
   width: 100%;
   padding-top: 6px;
   border-top: 1px solid var(--nle-border, #252837);
+  flex-shrink: 0;
 }
 
 .rail-collapse-btn {
@@ -744,13 +766,28 @@
 }
 
 .effect-preview-swatch {
-  height: 52px;
+  height: 56px;
   width: 100%;
   position: relative;
   padding: 6px 8px;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  overflow: hidden;
+}
+
+.effect-card-thumb-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.35s ease;
+  z-index: 0;
+}
+
+.effect-card:hover .effect-card-thumb-img {
+  transform: scale(1.08);
 }
 
 .effect-category-badge {
@@ -758,10 +795,13 @@
   font-size: 8px;
   font-weight: 700;
   color: #ffffff;
-  background: rgba(0, 0, 0, 0.65);
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(4px);
   padding: 2px 5px;
   border-radius: 3px;
   letter-spacing: 0.05em;
+  position: relative;
+  z-index: 1;
 }
 
 .effect-check-indicator {
@@ -774,6 +814,8 @@
   align-items: center;
   justify-content: center;
   box-shadow: 0 0 6px rgba(0, 177, 140, 0.8);
+  position: relative;
+  z-index: 1;
 }
 
 .effect-info {
@@ -801,6 +843,128 @@
 }
 
 /* ────────────────────────────────────────────────────────────────────────── */
+/* OpenShot VFX Pro Controls                                                 */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+.section-divider-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--nle-accent-cyan, #00f2fe);
+  padding: 10px 0 4px 0;
+  border-top: 1px solid var(--nle-border, #252837);
+  margin-top: 6px;
+}
+
+.segmented-pill-group {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+
+.sub-control-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  background: var(--nle-bg-surface, #12131b);
+  border-radius: 6px;
+  border: 1px solid var(--nle-border, #252837);
+  margin-top: 4px;
+}
+
+.sub-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--silver-whisper, #acadae);
+}
+
+.control-help-hint {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  line-height: 1.3;
+}
+
+/* Toggle Card */
+.toggle-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 8px;
+  background-color: var(--nle-bg-surface, #12131b);
+  border: 1px solid var(--nle-border, #252837);
+  transition: border-color 0.2s ease;
+}
+
+.toggle-card:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.toggle-card-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.chroma-presets-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.color-presets-flex {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chroma-color-chip {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+  padding: 0;
+}
+
+.chroma-color-chip:hover {
+  transform: scale(1.15);
+  border-color: #ffffff;
+}
+
+.chroma-color-chip.active {
+  border-color: #ffffff;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+  transform: scale(1.1);
+}
+
+.pro-color-input-mini {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: 1px solid var(--nle-border, #252837);
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+.control-group.sub-group {
+  margin-top: 2px;
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
 /* 7. Transitions & Wipes Tab Styles                                         */
 /* ────────────────────────────────────────────────────────────────────────── */
 
@@ -808,6 +972,62 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+.transitions-showcase-banner {
+  position: relative;
+  height: 92px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--nle-border, #252837);
+  display: flex;
+  align-items: flex-end;
+  padding: 10px 12px;
+  margin-bottom: 2px;
+}
+
+.transitions-banner-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: brightness(0.62) contrast(1.15);
+  transition: transform 0.4s ease;
+}
+
+.transitions-showcase-banner:hover .transitions-banner-bg {
+  transform: scale(1.04);
+}
+
+.transitions-banner-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.transitions-banner-tag {
+  font-size: 8px;
+  font-weight: 800;
+  color: var(--nle-accent-cyan, #00f2fe);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.transitions-banner-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.2;
+}
+
+.transitions-banner-desc {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.72);
+  line-height: 1.25;
+  margin: 0;
 }
 
 .btn-apply-all-transitions {

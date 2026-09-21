@@ -4,7 +4,8 @@ import { THEME_PRESETS, VISUAL_EFFECTS, TRANSITIONS_CATALOG } from '../../types'
 import { 
   FolderPlus, Palette, Type, Wand2, Mic2, SlidersHorizontal, 
   ChevronLeft, ChevronRight, X, Smartphone, Monitor, Square, 
-  AlignLeft, AlignCenter, AlignRight, Check, Sparkles, Layers
+  AlignLeft, AlignCenter, AlignRight, Check, Sparkles, Layers,
+  Sliders
 } from 'lucide-react';
 import { SongSelector } from './SongSelector';
 import './StudioDrawer.css';
@@ -302,6 +303,20 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
           {/* TAB: TRANSITIONS & WIPES */}
           {currentTab === 'transitions' && (
             <div className="drawer-section transitions-tab-content">
+              {/* Transitions Showcase Header Banner */}
+              <div className="transitions-showcase-banner">
+                <img 
+                  src="/assets/previews/transitions-showcase.jpg" 
+                  alt="Transitions Showcase" 
+                  className="transitions-banner-bg" 
+                />
+                <div className="transitions-banner-content">
+                  <span className="transitions-banner-tag">OPENSHOT GPU SHADERS</span>
+                  <div className="transitions-banner-title">Cinema Dynamic Wipes & Cuts</div>
+                  <p className="transitions-banner-desc">Hardware-accelerated clip wipes, directional slides and organic light leaks</p>
+                </div>
+              </div>
+
               {/* Category Filter Pills */}
               <div className="effects-category-filter">
                 {(['all', 'dissolve', 'wipe', 'motion', 'light'] as const).map((cat) => (
@@ -411,6 +426,45 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
                 ))}
               </div>
 
+              {/* Visual Effects & Shaders Grid with Generated Visual Thumbnails */}
+              <div className="effects-grid">
+                {VISUAL_EFFECTS.filter(e => effectCategory === 'all' || e.category === effectCategory).map((effect) => {
+                  const isActive = theme.active_filter === effect.id;
+                  return (
+                    <div
+                      key={effect.id}
+                      className={`effect-card ${isActive ? 'selected' : ''}`}
+                      onClick={() => handleChange('active_filter', effect.id)}
+                    >
+                      <div 
+                        className="effect-preview-swatch"
+                        style={{ background: effect.previewGradient }}
+                      >
+                        {effect.previewImage && (
+                          <img 
+                            src={effect.previewImage} 
+                            alt={effect.name} 
+                            className="effect-card-thumb-img" 
+                            loading="lazy" 
+                          />
+                        )}
+                        <span className="effect-category-badge">{effect.tag}</span>
+                        {isActive && (
+                          <div className="effect-check-indicator">
+                            <Check size={14} />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="effect-info">
+                        <div className="effect-name">{effect.name}</div>
+                        <div className="effect-desc">{effect.description}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
               {/* Filter Intensity Slider */}
               {theme.active_filter !== 'none' && (
                 <div className="control-group">
@@ -428,6 +482,222 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
                   />
                 </div>
               )}
+
+              {/* ───────────────────────────────────────────────────────────── */}
+              {/* OpenShot Pro VFX Engine Controls (Phase 2)                   */}
+              {/* ───────────────────────────────────────────────────────────── */}
+              <div className="section-divider-title">
+                <Sliders size={13} />
+                <span>OpenShot VFX Engine</span>
+              </div>
+
+              {/* Gaussian Defocus Background Blur */}
+              <div className="control-group">
+                <div className="group-header-flex">
+                  <label className="group-label">Background Defocus Blur</label>
+                  <span className="group-value-pill">{theme.background_blur || 0}px</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="30"
+                  step="1"
+                  value={theme.background_blur || 0}
+                  onChange={(e) => handleChange('background_blur', parseInt(e.target.value))}
+                  className="pro-range"
+                />
+                <span className="control-help-hint">Blurs video background to elevate lyric readability</span>
+              </div>
+
+              {/* Cinematic Letterbox Matte Bars */}
+              <div className="control-group">
+                <div className="group-header-flex">
+                  <label className="group-label">Cinematic Letterbox Matte</label>
+                  <span className="group-value-pill">{theme.letterbox_bars || 'none'}</span>
+                </div>
+                <div className="segmented-pill-group">
+                  {[
+                    { id: 'none', label: 'None' },
+                    { id: '2.39:1', label: '2.39:1 Scope' },
+                    { id: '1.85:1', label: '1.85:1 Flat' },
+                    { id: '4:3', label: '4:3 Vintage' },
+                  ].map((b) => (
+                    <button
+                      key={b.id}
+                      type="button"
+                      className={`cat-pill-btn ${theme.letterbox_bars === b.id ? 'active' : ''}`}
+                      onClick={() => handleChange('letterbox_bars', b.id)}
+                    >
+                      {b.label}
+                    </button>
+                  ))}
+                </div>
+                {theme.letterbox_bars !== 'none' && (
+                  <div className="sub-control-row">
+                    <span className="sub-label">Matte Bar Color</span>
+                    <div className="color-picker-wrapper">
+                      <input
+                        type="color"
+                        value={theme.letterbox_color || '#000000'}
+                        onChange={(e) => handleChange('letterbox_color', e.target.value)}
+                        className="pro-color-input"
+                      />
+                      <span className="color-hex">{theme.letterbox_color || '#000000'}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* ChromaKey Screen Removal */}
+              <div className="toggle-card">
+                <div className="toggle-row">
+                  <div>
+                    <div className="toggle-label">ChromaKey Screen Removal</div>
+                    <div className="toggle-desc">Key out green or blue screen video backgrounds</div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={theme.chroma_key_enabled || false}
+                    onChange={(e) => handleChange('chroma_key_enabled', e.target.checked)}
+                    className="pro-switch"
+                  />
+                </div>
+
+                {theme.chroma_key_enabled && (
+                  <div className="toggle-card-details">
+                    <div className="chroma-presets-row">
+                      <span className="sub-label">Key Color:</span>
+                      <div className="color-presets-flex">
+                        {[
+                          { label: 'Green', color: '#00ff00' },
+                          { label: 'Blue', color: '#0000ff' },
+                          { label: 'Magenta', color: '#ff00ff' },
+                        ].map((preset) => (
+                          <button
+                            key={preset.color}
+                            type="button"
+                            className={`chroma-color-chip ${theme.chroma_key_color?.toLowerCase() === preset.color ? 'active' : ''}`}
+                            style={{ backgroundColor: preset.color }}
+                            onClick={() => handleChange('chroma_key_color', preset.color)}
+                            title={`Key ${preset.label}`}
+                          >
+                            {theme.chroma_key_color?.toLowerCase() === preset.color && <Check size={10} color="#000" />}
+                          </button>
+                        ))}
+                        <input
+                          type="color"
+                          value={theme.chroma_key_color || '#00ff00'}
+                          onChange={(e) => handleChange('chroma_key_color', e.target.value)}
+                          className="pro-color-input-mini"
+                          title="Custom Chroma Color"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="control-group sub-group">
+                      <div className="group-header-flex">
+                        <label className="group-label">Tolerance / Fuzz</label>
+                        <span className="group-value-pill">{theme.chroma_key_fuzz || 35}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="10"
+                        max="80"
+                        value={theme.chroma_key_fuzz || 35}
+                        onChange={(e) => handleChange('chroma_key_fuzz', parseInt(e.target.value))}
+                        className="pro-range"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Liquid Wave Distortion */}
+              <div className="toggle-card">
+                <div className="toggle-row">
+                  <div>
+                    <div className="toggle-label">Liquid Wave Distortion</div>
+                    <div className="toggle-desc">Dynamic fluid ripple and psychedelic wave warp</div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={theme.wave_enabled || false}
+                    onChange={(e) => handleChange('wave_enabled', e.target.checked)}
+                    className="pro-switch"
+                  />
+                </div>
+
+                {theme.wave_enabled && (
+                  <div className="toggle-card-details">
+                    <div className="control-group sub-group">
+                      <div className="group-header-flex">
+                        <label className="group-label">Wave Amplitude</label>
+                        <span className="group-value-pill">{theme.wave_amplitude || 15}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="2"
+                        max="50"
+                        value={theme.wave_amplitude || 15}
+                        onChange={(e) => handleChange('wave_amplitude', parseInt(e.target.value))}
+                        className="pro-range"
+                      />
+                    </div>
+
+                    <div className="control-group sub-group">
+                      <div className="group-header-flex">
+                        <label className="group-label">Wave Speed</label>
+                        <span className="group-value-pill">{(theme.wave_speed || 1.0).toFixed(1)}x</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0.2"
+                        max="3.0"
+                        step="0.1"
+                        value={theme.wave_speed || 1.0}
+                        onChange={(e) => handleChange('wave_speed', parseFloat(e.target.value))}
+                        className="pro-range"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 8-Bit Mosaic Pixelate */}
+              <div className="toggle-card">
+                <div className="toggle-row">
+                  <div>
+                    <div className="toggle-label">8-Bit Mosaic Pixelate</div>
+                    <div className="toggle-desc">Retro arcade block quantization mosaic filter</div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={theme.pixelate_enabled || false}
+                    onChange={(e) => handleChange('pixelate_enabled', e.target.checked)}
+                    className="pro-switch"
+                  />
+                </div>
+
+                {theme.pixelate_enabled && (
+                  <div className="toggle-card-details">
+                    <div className="control-group sub-group">
+                      <div className="group-header-flex">
+                        <label className="group-label">Mosaic Block Size</label>
+                        <span className="group-value-pill">{theme.pixelate_block_size || 16}px</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="4"
+                        max="48"
+                        step="2"
+                        value={theme.pixelate_block_size || 16}
+                        onChange={(e) => handleChange('pixelate_block_size', parseInt(e.target.value))}
+                        className="pro-range"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* Vignette Toggle */}
               <div className="toggle-row">
@@ -463,37 +733,6 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
                     </button>
                   ))}
                 </div>
-              </div>
-
-              {/* Visual Effects & Shaders Grid */}
-              <div className="effects-grid">
-                {VISUAL_EFFECTS.filter(e => effectCategory === 'all' || e.category === effectCategory).map((effect) => {
-                  const isActive = theme.active_filter === effect.id;
-                  return (
-                    <div
-                      key={effect.id}
-                      className={`effect-card ${isActive ? 'selected' : ''}`}
-                      onClick={() => handleChange('active_filter', effect.id)}
-                    >
-                      <div 
-                        className="effect-preview-swatch"
-                        style={{ background: effect.previewGradient }}
-                      >
-                        <span className="effect-category-badge">{effect.tag}</span>
-                        {isActive && (
-                          <div className="effect-check-indicator">
-                            <Check size={14} />
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="effect-info">
-                        <div className="effect-name">{effect.name}</div>
-                        <div className="effect-desc">{effect.description}</div>
-                      </div>
-                    </div>
-                  );
-                })}
               </div>
             </div>
           )}
