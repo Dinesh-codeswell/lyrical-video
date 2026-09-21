@@ -194,6 +194,11 @@ class TextRenderer:
         """
         if background is not None:
             img = background.convert("RGBA")
+            if getattr(self.theme, "text_overlay_opacity", 0) > 0:
+                overlay_a = int((min(100, max(0, self.theme.text_overlay_opacity)) / 100.0) * 255)
+                overlay_col = self._hex_to_rgba(getattr(self.theme, "text_overlay_color", "#000000"), overlay_a)
+                overlay_layer = Image.new("RGBA", (self.width, self.height), overlay_col)
+                img = Image.alpha_composite(img, overlay_layer)
         else:
             img = Image.new("RGBA", (self.width, self.height), self.theme.background_color)
 
@@ -460,7 +465,7 @@ class TextRenderer:
             else:
                 lines.append(current)
                 current = word
-            lines.append(current)
+        lines.append(current)
         return "\n".join(lines)
 
     def _compute_vertical_position(self) -> int:

@@ -31,6 +31,7 @@ export const Dashboard: React.FC = () => {
   const [isVideoVisible, setIsVideoVisible] = useState(true);
   const [isLyricsVisible, setIsLyricsVisible] = useState(true);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [markers, setMarkers] = useState<Marker[]>([]);
 
   // Section-Wise Studio Drawer State
@@ -186,6 +187,31 @@ export const Dashboard: React.FC = () => {
     }
   };
 
+  // Sync background video playback state to audio timeline
+  useEffect(() => {
+    const video = bgVideoRef.current;
+    if (!video) return;
+
+    if (isAudioPlaying) {
+      video.play().catch(() => {
+        // Autoplay policy fallback
+      });
+    } else {
+      video.pause();
+    }
+  }, [isAudioPlaying]);
+
+  // Sync background video scrub & seek time (threshold 0.25s to avoid jitter)
+  useEffect(() => {
+    const video = bgVideoRef.current;
+    if (!video || !video.duration) return;
+
+    const targetTime = currentTime % video.duration;
+    if (Math.abs(video.currentTime - targetTime) > 0.25) {
+      video.currentTime = targetTime;
+    }
+  }, [currentTime]);
+
   // ──────────────────────────────────────────────────────────────────────────
   // History Actions (Undo / Redo)
   // ──────────────────────────────────────────────────────────────────────────
@@ -268,7 +294,7 @@ export const Dashboard: React.FC = () => {
     return 0;
   }, [currentTime, clips]);
 
-  // Calculate smooth interpolation for continuous scrolling
+  // Calculate smooth hold-and-ease center scrolling (Apple Music / Spotify Sing gold standard)
   const scrollOffset = useMemo(() => {
     if (clips.length === 0) return 0;
     
@@ -285,8 +311,18 @@ export const Dashboard: React.FC = () => {
     
     if (totalGap <= 0) return i * lineHeight;
 
-    const progress = (currentTime - currentClip.start_time) / totalGap;
-    return (i + progress) * lineHeight;
+    // Smooth hold-and-ease: keep active line centered while singing,
+    // then smoothly glide up to the next line over transitionWindow (max 0.7s)
+    const transitionWindow = Math.min(0.7, totalGap * 0.4);
+    const transitionStart = nextClip.start_time - transitionWindow;
+
+    if (currentTime < transitionStart) {
+      return i * lineHeight;
+    } else {
+      const progress = Math.min(1, Math.max(0, (currentTime - transitionStart) / transitionWindow));
+      const ease = 0.5 * (1 - Math.cos(Math.PI * progress)); // smooth cosine S-curve
+      return (i + ease) * lineHeight;
+    }
   }, [currentTime, clips, lastStartedIndex, lineHeight]);
 
   // Logic to get visible lines
@@ -310,19 +346,34 @@ export const Dashboard: React.FC = () => {
   }, [selectedSong, clips, lastStartedIndex, lineHeight]);
 
   // Animation Helpers
-  const getLineStyles = (isCurrent: boolean, currentTheme: Theme): React.CSSProperties => ({
-    fontSize: `${currentTheme.font_size * previewScale}px`, 
-    color: isCurrent && currentTheme.highlight_mode === 'line' ? currentTheme.active_text_color : currentTheme.text_color,
-    fontFamily: currentTheme.font_family,
-    textAlign: currentTheme.lyric_position,
-    fontWeight: (isCurrent && currentTheme.active_text_bold) ? 'bold' : 'normal',
-    textShadow: (isCurrent && currentTheme.active_text_glow) ? `0 0 ${20 * previewScale}px ${currentTheme.active_glow_color || currentTheme.active_text_color}` : 'none',
-    WebkitTextStroke: isCurrent ? `${currentTheme.active_text_stroke_width * previewScale}px ${currentTheme.active_text_stroke_color}` : 'none',
-    letterSpacing: `${currentTheme.letter_spacing * previewScale}px`,
-    maxWidth: `${currentTheme.column_width * previewScale}px`,
-    width: '100%',
-    padding: `0 ${40 * previewScale}px`,
-  });
+  const getLineStyles = (isCurrent: boolean, currentTheme: Theme): React.CSSProperties => {
+    const horizontalMargin = currentTheme.aspect_ratio === '9:16' ? 120 : 160;
+    const maxColumnWidth = Math.min(
+      currentTheme.column_width,
+      baseDims.width - horizontalMargin
+    ) * previewScale;
+
+    return {
+      fontSize: `${currentTheme.font_size * previewScale}px`, 
+      color: isCurrent && currentTheme.highlight_mode === 'line' ? currentTheme.active_text_color : currentTheme.text_color,
+      fontFamily: currentTheme.font_family,
+      textAlign: currentTheme.lyric_position,
+      fontWeight: (isCurrent && currentTheme.active_text_bold) ? 'bold' : 'normal',
+      textShadow: (isCurrent && currentTheme.active_text_glow) ? `0 0 ${20 * previewScale}px ${currentTheme.active_glow_color || currentTheme.active_text_color}` : 'none',
+      WebkitTextStroke: isCurrent && currentTheme.active_text_stroke_width ? `${currentTheme.active_text_stroke_width * previewScale}px ${currentTheme.active_text_stroke_color}` : 'none',
+      letterSpacing: `${currentTheme.letter_spacing * previewScale}px`,
+      maxWidth: `${maxColumnWidth}px`,
+      width: '100%',
+      boxSizing: 'border-box',
+      overflowWrap: 'break-word',
+      wordBreak: 'break-word',
+      whiteSpace: 'pre-wrap',
+      padding: `0 ${20 * previewScale}px`,
+      transform: isCurrent ? 'scale(1.04)' : 'scale(1)',
+      transformOrigin: currentTheme.lyric_position === 'left' ? 'left center' : currentTheme.lyric_position === 'right' ? 'right center' : 'center center',
+      transition: 'transform 0.35s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.25s ease, color 0.2s ease',
+    };
+  };
 
   const renderLineText = (line: LyricClip, isCurrent: boolean, currentTheme: Theme, time: number, activeClip: LyricClip) => {
     if (!isCurrent) return line.text;
@@ -793,9 +844,9 @@ export const Dashboard: React.FC = () => {
                   <video 
                     ref={bgVideoRef}
                     src={`/api/download_raw?path=${songPaths.background}`}
-                    autoPlay 
                     loop 
                     muted 
+                    playsInline
                     className="compositor-layer layer-bg"
                     style={activeFilterCSS ? { filter: activeFilterCSS } : undefined}
                   />
@@ -879,8 +930,8 @@ export const Dashboard: React.FC = () => {
                       <div 
                         className="lyrics-scroller"
                         style={{ 
-                          transform: `translateY(${(stageHeight / 2) - scrollOffset}px)`,
-                          transition: `transform ${0.3 / theme.animation_speed}s linear`
+                          transform: `translate3d(0, ${(stageHeight / 2) - scrollOffset}px, 0)`,
+                          willChange: 'transform'
                         }}
                       >
                         {visibleLines.map((line) => {
@@ -890,7 +941,15 @@ export const Dashboard: React.FC = () => {
                           const lineStyles = getLineStyles(isCurrent, theme);
                           
                           return (
-                            <div key={line.id} className="lyric-line-wrapper" style={{ top: `${line.y}px`, opacity }}>
+                            <div 
+                              key={line.id} 
+                              className="lyric-line-wrapper" 
+                              style={{ 
+                                top: `${line.y}px`, 
+                                opacity,
+                                justifyContent: theme.lyric_position === 'left' ? 'flex-start' : theme.lyric_position === 'right' ? 'flex-end' : 'center'
+                              }}
+                            >
                               <div 
                                 className="lyric-line-text" 
                                 style={isCurrent ? getTransitionStyle(lineStyles) : lineStyles}
@@ -902,7 +961,12 @@ export const Dashboard: React.FC = () => {
                         })}
                       </div>
                     ) : (
-                      <div className={`lyrics-static-stage ${theme.animation_style}`}>
+                      <div 
+                        className={`lyrics-static-stage ${theme.animation_style}`}
+                        style={{
+                          justifyContent: theme.lyric_position === 'left' ? 'flex-start' : theme.lyric_position === 'right' ? 'flex-end' : 'center'
+                        }}
+                      >
                         {clips[activeIndex] && (
                           <div 
                             key={clips[activeIndex].id} 
@@ -1062,6 +1126,7 @@ export const Dashboard: React.FC = () => {
                     setActiveDrawerTab('transitions');
                     if (!isDrawerOpen) setIsDrawerOpen(true);
                   }}
+                  onPlayStateChange={setIsAudioPlaying}
                 />
              </div>
           </div>

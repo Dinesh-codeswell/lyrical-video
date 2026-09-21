@@ -27,6 +27,7 @@ interface WebTimelineProps {
   onMarkersChange?: (markers: Marker[]) => void;
   activeTransition?: TransitionType;
   onOpenTransitionsTab?: () => void;
+  onPlayStateChange?: (isPlaying: boolean) => void;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -259,7 +260,8 @@ export const WebTimeline: React.FC<WebTimelineProps> = ({
   markers = [],
   onMarkersChange,
   activeTransition,
-  onOpenTransitionsTab
+  onOpenTransitionsTab,
+  onPlayStateChange
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -332,6 +334,9 @@ export const WebTimeline: React.FC<WebTimelineProps> = ({
   const onTimeUpdateRef = useRef(onTimeUpdate);
   useEffect(() => { onTimeUpdateRef.current = onTimeUpdate; }, [onTimeUpdate]);
 
+  const onPlayStateChangeRef = useRef(onPlayStateChange);
+  useEffect(() => { onPlayStateChangeRef.current = onPlayStateChange; }, [onPlayStateChange]);
+
   const duration = wavesurferRef.current?.getDuration() || 0;
 
   // 1. Initialize Wavesurfer
@@ -352,8 +357,14 @@ export const WebTimeline: React.FC<WebTimelineProps> = ({
 
     wavesurferRef.current = ws;
 
-    ws.on('play', () => setIsPlaying(true));
-    ws.on('pause', () => setIsPlaying(false));
+    ws.on('play', () => {
+      setIsPlaying(true);
+      onPlayStateChangeRef.current?.(true);
+    });
+    ws.on('pause', () => {
+      setIsPlaying(false);
+      onPlayStateChangeRef.current?.(false);
+    });
     ws.on('ready', () => {
       setIsReady(true);
       ws.zoom(zoom);

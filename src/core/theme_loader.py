@@ -37,6 +37,20 @@ DEFAULTS = {
     "logo_h_align": "center",       # "left", "center", "right"
     "title_h_align": "center",      # horizontal alignment for intro/outro title text
     "interlude_dot_color": None,    # None = use active_text_color
+    "active_filter": "none",
+    "background_blur": 0,
+    "vignette_enabled": False,
+    "letterbox_bars": "none",
+    "letterbox_color": "#000000",
+    "active_transition": "crossfade",
+    "transition_duration": 0.4,
+    "wave_enabled": False,
+    "wave_speed": 1.0,
+    "wave_amplitude": 15.0,
+    "pixelate_block_size": 16,
+    "chroma_key_enabled": False,
+    "chroma_key_color": "#00ff00",
+    "chroma_key_fuzz": 35,
 }
 
 THEME_PRESETS = {
@@ -199,6 +213,20 @@ class Theme:
     logo_h_align: str = "center"
     title_h_align: str = "center"
     interlude_dot_color: str | None = None
+    active_filter: str = "none"
+    background_blur: int = 0
+    vignette_enabled: bool = False
+    letterbox_bars: str = "none"
+    letterbox_color: str = "#000000"
+    active_transition: str = "crossfade"
+    transition_duration: float = 0.4
+    wave_enabled: bool = False
+    wave_speed: float = 1.0
+    wave_amplitude: float = 15.0
+    pixelate_block_size: int = 16
+    chroma_key_enabled: bool = False
+    chroma_key_color: str = "#00ff00"
+    chroma_key_fuzz: int = 35
 
     @property
     def effective_active_text_color(self) -> str:
@@ -391,4 +419,9 @@ def load_theme(filepath: str | Path | None = None) -> Theme:
         logo_h_align=str(merged.get("logo_h_align", "center")),
         title_h_align=str(merged.get("title_h_align", "center")),
         interlude_dot_color=merged.get("interlude_dot_color") or None,
+        active_filter=str(merged.get("active_filter", "none")),
+        background_blur=int(merged.get("background_blur", 0)),
+        vignette_enabled=bool(merged.get("vignette_enabled", False)),
+        letterbox_bars=str(merged.get("letterbox_bars", "none")),
+        letterbox_color=str(merged.get("letterbox_color", "#000000")),
     )

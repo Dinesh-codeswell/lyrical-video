@@ -11,7 +11,7 @@ class RenderCancelled(Exception):
     """Raised inside make_frame when the caller requests cancellation."""
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageFilter, ImageEnhance
 from moviepy import VideoClip, VideoFileClip
 
 from src.animations.scroll import ScrollingAnimation
@@ -48,10 +48,110 @@ def _fit_to_frame(img: Image.Image, width: int = _WIDTH, height: int = _HEIGHT) 
     return img.crop((left, top, left + width, top + height))
 
 
+_vignette_cache: dict[tuple[int, int], np.ndarray] = {}
+
+
+def _get_vignette_mask(h: int, w: int) -> np.ndarray:
+    key = (h, w)
+    if key not in _vignette_cache:
+        x = np.linspace(-1, 1, w, dtype=np.float32)
+        y = np.linspace(-1, 1, h, dtype=np.float32)
+        xx, yy = np.meshgrid(x, y)
+        radius = np.sqrt(xx ** 2 + yy ** 2)
+        mask = np.clip(1.0 - (radius - 0.45) * 0.75, 0.0, 1.0)[:, :, np.newaxis]
+        _vignette_cache[key] = mask
+    return _vignette_cache[key]
+
+
+def _apply_vignette_np(frame: np.ndarray) -> np.ndarray:
+    h, w, _ = frame.shape
+    mask = _get_vignette_mask(h, w)
+    return (frame.astype(np.float32) * mask).astype(np.uint8)
+
+
+def _apply_letterbox_bars_np(frame: np.ndarray, target_ratio_str: str, bar_color_hex: str = "#000000") -> np.ndarray:
+    ratio_map = {
+        "2.39:1": 2.39,
+        "1.85:1": 1.85,
+        "4:3": 4.0 / 3.0,
+    }
+    target_ratio = ratio_map.get(target_ratio_str)
+    if not target_ratio:
+        return frame
+
+    h, w, _ = frame.shape
+    frame_ratio = w / h
+    hex_clean = bar_color_hex.lstrip("#")
+    if len(hex_clean) == 6:
+        color = [int(hex_clean[i:i+2], 16) for i in (0, 2, 4)]
+    else:
+        color = [0, 0, 0]
+
+    out = frame.copy()
+    if target_ratio > frame_ratio:
+        visible_h = w / target_ratio
+        bar_h = int((h - visible_h) / 2)
+        if bar_h > 0:
+            out[:bar_h, :] = color
+            out[h - bar_h:, :] = color
+    else:
+        visible_w = h * target_ratio
+        bar_w = int((w - visible_w) / 2)
+        if bar_w > 0:
+            out[:, :bar_w] = color
+            out[:, w - bar_w:] = color
+    return out
+
+
+def _apply_visual_filter(img: Image.Image, filter_name: str, t: float = 0.0) -> Image.Image:
+    if not filter_name or filter_name == "none":
+        return img
+
+    if filter_name == "pixelate":
+        block_size = 16
+        small = img.resize((max(1, img.width // block_size), max(1, img.height // block_size)), Image.NEAREST)
+        return small.resize((img.width, img.height), Image.NEAREST)
+
+    if filter_name == "film-grain":
+        arr = np.array(img, dtype=np.int16)
+        noise = np.random.randint(-12, 13, (img.height, img.width, 1), dtype=np.int16)
+        arr[:, :, :3] = np.clip(arr[:, :, :3] + noise, 0, 255)
+        return Image.fromarray(arr.astype(np.uint8), "RGBA")
+
+    if filter_name == "cyberpunk-neon":
+        enhancer = ImageEnhance.Color(img)
+        img = enhancer.enhance(1.4)
+        enhancer_con = ImageEnhance.Contrast(img)
+        return enhancer_con.enhance(1.25)
+
+    if filter_name == "teal-orange":
+        arr = np.array(img, dtype=np.float32)
+        arr[:, :, 0] = np.clip(arr[:, :, 0] * 1.15, 0, 255)
+        arr[:, :, 2] = np.clip(arr[:, :, 2] * 0.88 + 15, 0, 255)
+        return Image.fromarray(arr.astype(np.uint8), "RGBA")
+
+    if filter_name == "crt-scanlines":
+        arr = np.array(img, dtype=np.uint8)
+        arr[::4, :, :3] = (arr[::4, :, :3] * 0.65).astype(np.uint8)
+        return Image.fromarray(arr, "RGBA")
+
+    if filter_name == "vhs-glitch":
+        arr = np.array(img)
+        shift = 4
+        r = np.roll(arr[:, :, 0], -shift, axis=1)
+        b = np.roll(arr[:, :, 2], shift, axis=1)
+        arr[:, :, 0] = r
+        arr[:, :, 2] = b
+        return Image.fromarray(arr, "RGBA")
+
+    return img
+
+
 def _build_bg_frame_getter(
     background_path: str | Path,
     width: int = _WIDTH,
     height: int = _HEIGHT,
+    theme: Theme | None = None,
 ) -> tuple[Callable[[float], Image.Image], Callable[[], None]]:
     """Return a function that maps video time t → background PIL Image, and a cleanup callback."""
     clip = VideoFileClip(str(background_path), audio=False)
@@ -65,7 +165,15 @@ def _build_bg_frame_getter(
         bg_t = min(max(bg_t, 0.0), bg_dur - _eps)
         frame = clip.get_frame(bg_t)  # HxWx3 uint8
         img = Image.fromarray(frame.astype(np.uint8), "RGB").convert("RGBA")
-        return _fit_to_frame(img, width=width, height=height)
+        fitted = _fit_to_frame(img, width=width, height=height)
+        if theme is not None:
+            if getattr(theme, "background_blur", 0) > 0:
+                radius = min(int(theme.background_blur), 20)
+                fitted = fitted.filter(ImageFilter.GaussianBlur(radius=radius))
+            active_filter = getattr(theme, "active_filter", "none")
+            if active_filter and active_filter != "none":
+                fitted = _apply_visual_filter(fitted, active_filter, t)
+        return fitted
 
     def cleanup():
         try:
@@ -147,7 +255,9 @@ def generate_video(
     bg_cleanup = None
     if background_path is not None:
         print(f"Background: {background_path} (ping-pong loop, {render_w}x{render_h})")
-        bg_frame_getter, bg_cleanup = _build_bg_frame_getter(background_path, width=render_w, height=render_h)
+        bg_frame_getter, bg_cleanup = _build_bg_frame_getter(
+            background_path, width=render_w, height=render_h, theme=theme_obj
+        )
 
     # Build scrolling animation over all lines
     animation = ScrollingAnimation(
@@ -185,6 +295,14 @@ def generate_video(
         actual_t = t + preview_start if preview else t
         bg = bg_frame_getter(actual_t) if bg_frame_getter is not None else None
         result = animation.make_frame(actual_t, renderer, background=bg)
+
+        # Apply Vignette & Letterbox post-processing if enabled
+        if getattr(theme_obj, "vignette_enabled", False):
+            result = _apply_vignette_np(result)
+        letterbox = getattr(theme_obj, "letterbox_bars", "none")
+        if letterbox and letterbox != "none":
+            result = _apply_letterbox_bars_np(result, letterbox, getattr(theme_obj, "letterbox_color", "#000000"))
+
         _frame_count[0] += 1
         if progress_callback is not None:
             progress_callback(min(_frame_count[0], total_frames), total_frames)
