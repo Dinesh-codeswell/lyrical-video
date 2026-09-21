@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, Form, BackgroundTasks, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, BackgroundTasks, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pathlib import Path
@@ -6,7 +6,16 @@ import uuid
 import shutil
 import json
 
-from src.core.song_resolver import resolve_song, scan_songs, PROJECT_ROOT, INPUT_AUDIO_DIR, INPUT_LYRICS_DIR, INPUT_BACKGROUNDS_DIR
+from src.core.song_resolver import (
+    resolve_song,
+    scan_songs,
+    get_song_files,
+    PROJECT_ROOT,
+    INPUT_AUDIO_DIR,
+    INPUT_LYRICS_DIR,
+    INPUT_BACKGROUNDS_DIR,
+    THEMES_DIR,
+)
 from src.core.video_generator import generate_video
 from src.core.theme_loader import load_theme, Theme, THEME_PRESETS
 from src.core.lyrics_parser import parse_lrc_string, parse_srt_string
@@ -65,39 +74,43 @@ async def get_presets():
 
 @app.get("/api/songs/{slug}")
 async def get_song_details(slug: str):
-    """Get resolved paths and details for a specific song."""
-    try:
-        paths = resolve_song(slug)
-        # Convert Path objects to strings for JSON serialization
-        return {k: str(v) if v else None for k, v in paths.items()}
-    except Exception as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    """Get resolved paths and details for a specific song (supports partial songs)."""
+    files = get_song_files(slug)
+    if not any(files.values()):
+        raise HTTPException(status_code=404, detail=f"Song '{slug}' not found")
+    return {k: str(v) if v else None for k, v in files.items()}
 
 @app.delete("/api/songs/{slug}")
 async def delete_song(slug: str):
-    """Delete all files associated with a song."""
+    """Delete all files associated with a song slug."""
     try:
-        paths = resolve_song(slug)
-        results = {"deleted": [], "failed": []}
+        deleted = []
+        failed = []
         
-        for key, path_str in paths.items():
-            if path_str:
-                p = Path(path_str)
-                if p.exists():
+        # Check all possible media directories for files belonging to this slug
+        targets = [
+            (INPUT_AUDIO_DIR, [".mp3", ".wav", ".m4a", ".flac", ".ogg"]),
+            (INPUT_LYRICS_DIR, [".json", ".lrc", ".srt", ".vtt"]),
+            (INPUT_BACKGROUNDS_DIR, [".mp4", ".mov", ".avi", ".mkv", ".webm"]),
+            (THEMES_DIR, [".json"]),
+            (PROJECT_ROOT / "output", [".mp4"])
+        ]
+        
+        for directory, extensions in targets:
+            if not directory.exists():
+                continue
+            for ext in extensions:
+                pattern = f"{slug}{ext}" if directory != (PROJECT_ROOT / "output") else f"{slug}*{ext}"
+                for file_path in directory.glob(pattern):
                     try:
-                        p.unlink()
-                        results["deleted"].append(key)
+                        file_path.unlink()
+                        deleted.append(str(file_path.name))
                     except PermissionError:
-                        results["failed"].append({key: "File in use (Permission Denied)"})
+                        failed.append({str(file_path.name): "File in use (Permission Denied)"})
                     except Exception as e:
-                        results["failed"].append({key: str(e)})
+                        failed.append({str(file_path.name): str(e)})
         
-        if not results["deleted"] and results["failed"]:
-            raise HTTPException(status_code=500, detail=f"Failed to delete files: {results['failed']}")
-            
-        return {"status": "success", "data": results}
-    except HTTPException:
-        raise
+        return {"status": "success", "deleted": deleted, "failed": failed}
     except Exception as e:
         import traceback
         print(traceback.format_exc())
@@ -252,19 +265,23 @@ async def download_raw(path: str):
     return FileResponse(p)
 
 @app.post("/api/auto-lyrics/{slug}")
-async def auto_lyrics(slug: str):
-    """Automatically generate lyrics from audio using AI."""
+async def auto_lyrics(slug: str, request: Request):
+    """Automatically generate lyrics from audio using AssemblyAI."""
     try:
-        # We can't use resolve_song because it requires the lyrics file to exist.
-        # Instead, we find the audio manually.
+        # Check request headers or query params for custom API key
+        custom_key = request.headers.get("x-assemblyai-key") or request.query_params.get("api_key")
+        
         from src.core.song_resolver import _find_audio
         audio_path = _find_audio(slug)
         
         if not audio_path or not audio_path.exists():
-            raise HTTPException(status_code=404, detail=f"Audio file not found for '{slug}'. Please upload audio first.")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Audio file not found for '{slug}'. Please upload an audio file (.mp3, .wav) before requesting AI lyrics."
+            )
 
-        # Call AI service
-        result = generate_ai_lyrics(audio_path, song_title=slug)
+        # Call AI service with optional custom key
+        result = generate_ai_lyrics(audio_path, song_title=slug, api_key=custom_key)
         
         # Save to lyrics folder
         lyrics_file = INPUT_LYRICS_DIR / f"{slug}.json"
@@ -272,6 +289,12 @@ async def auto_lyrics(slug: str):
             json.dump(result, f, indent=2, ensure_ascii=False)
             
         return {"status": "success", "lyrics_path": str(lyrics_file), "data": result}
+    except HTTPException:
+        raise
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except TimeoutError as te:
+        raise HTTPException(status_code=504, detail=str(te))
     except Exception as e:
         import traceback
         print(traceback.format_exc())

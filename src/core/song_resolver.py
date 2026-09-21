@@ -135,3 +135,27 @@ def _find_audio(song_name: str) -> Path | None:
         if candidate.exists():
             return candidate
     return None
+
+
+def get_song_files(song_name: str) -> dict[str, Path | None]:
+    """Resolve available file paths for a song slug, allowing partial songs (e.g. lyrics-only or audio-only)."""
+    lyrics_path = _find_lyrics(song_name)
+    audio_path = _find_audio(song_name)
+
+    background_path = None
+    for ext in (".mp4", ".mov", ".avi", ".mkv", ".webm"):
+        candidate = INPUT_BACKGROUNDS_DIR / f"{song_name}{ext}"
+        if candidate.exists():
+            background_path = candidate
+            break
+
+    theme_candidate = THEMES_DIR / f"{song_name}.json"
+    theme_path = theme_candidate if theme_candidate.exists() else None
+
+    return {
+        "lyrics": lyrics_path,
+        "audio": audio_path,
+        "background": background_path,
+        "theme": theme_path,
+    }
+

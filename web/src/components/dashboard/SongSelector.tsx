@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Music, Upload, RefreshCw, FileJson, Video, Plus, X, Sparkles, Trash2, Settings2, Disc3 } from 'lucide-react';
+import { Music, Upload, RefreshCw, FileJson, Video, Plus, X, Sparkles, Trash2, Settings2, Disc3, Key } from 'lucide-react';
 import { Button } from '../ui/Button';
 import './SongSelector.css';
 
@@ -10,6 +10,8 @@ export const SongSelector: React.FC<{ onSelect: (slug: string) => void }> = ({ o
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
   const [showNew, setShowNew] = useState(false);
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem('assemblyai_api_key') || '');
   const [isEditing, setIsEditing] = useState(false);
 
   // New song state
@@ -210,22 +212,35 @@ function parseLrcOrText(text: string): { time: number; text: string }[] {
     }
   };
 
-  const handleAIGenerate = async (e: React.MouseEvent, slug: string) => {
+  const handleAIGenerate = async (e: React.MouseEvent | null, slug: string) => {
     if (e) e.stopPropagation();
     setLoadingAI(slug);
     try {
+      const headers: Record<string, string> = {};
+      const savedKey = localStorage.getItem('assemblyai_api_key');
+      if (savedKey) {
+        headers['x-assemblyai-key'] = savedKey;
+      }
+
       const resp = await fetch(`/api/auto-lyrics/${slug}`, {
-        method: 'POST'
+        method: 'POST',
+        headers,
       });
+
       if (resp.ok) {
         fetchSongs();
         onSelect(slug);
       } else {
         const err = await resp.json();
-        alert('AI Error: ' + err.detail);
+        const detailMsg = err.detail || 'Failed to generate AI lyrics';
+        if (detailMsg.toLowerCase().includes('api key') || detailMsg.toLowerCase().includes('assemblyai')) {
+          setShowApiKeyModal(true);
+        }
+        alert('AI Notice: ' + detailMsg);
       }
     } catch (err) {
       console.error('AI Request failed:', err);
+      alert('AI Request failed. Please check network connection.');
     } finally {
       setLoadingAI(null);
     }
@@ -234,7 +249,7 @@ function parseLrcOrText(text: string): { time: number; text: string }[] {
   return (
     <div className="song-selector">
       <div className="selector-actions">
-        <Button variant="ghost" size="sm" onClick={fetchSongs} disabled={loading}>
+        <Button variant="ghost" size="sm" onClick={fetchSongs} disabled={loading} title="Refresh Songs">
           <RefreshCw size={14} className={loading ? 'spin' : ''} />
         </Button>
         <Button variant="secondary" size="sm" onClick={() => setShowNew(true)}>
@@ -242,6 +257,15 @@ function parseLrcOrText(text: string): { time: number; text: string }[] {
         </Button>
         <Button variant="ghost" size="sm" className="import-btn" onClick={() => setShowImport(true)}>
           <Upload size={14} /> Import
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setShowApiKeyModal(true)}
+          title={apiKey ? "AssemblyAI API Key Configured" : "Configure AssemblyAI API Key"}
+          style={{ color: apiKey ? 'var(--electric-blue, #00f3ff)' : 'var(--soft-stone, #9ca3af)' }}
+        >
+          <Key size={14} />
         </Button>
       </div>
 
@@ -280,13 +304,13 @@ function parseLrcOrText(text: string): { time: number; text: string }[] {
         )}
         
         {songs.map((song) => {
-          const isLoadable = song.has_audio && song.has_lyrics;
+          const isLoadable = song.has_audio || song.has_lyrics;
           const isProcessing = loadingAI === song.name;
 
           return (
             <div 
               key={song.name} 
-              className={`song-item ${selectedSlug === song.name ? 'selected' : ''} ${!isLoadable && !song.has_audio ? 'incomplete' : ''}`}
+              className={`song-item ${selectedSlug === song.name ? 'selected' : ''} ${!isLoadable ? 'incomplete' : ''}`}
               onClick={() => setSelectedSlug(song.name)}
             >
               <div className="song-info">
@@ -335,7 +359,7 @@ function parseLrcOrText(text: string): { time: number; text: string }[] {
       <div className="load-action">
         <Button 
           variant="primary" 
-          disabled={!selectedSlug || !songs.find(s => s.name === selectedSlug)?.has_audio || !songs.find(s => s.name === selectedSlug)?.has_lyrics}
+          disabled={!selectedSlug || (!songs.find(s => s.name === selectedSlug)?.has_audio && !songs.find(s => s.name === selectedSlug)?.has_lyrics)}
           onClick={() => selectedSlug && onSelect(selectedSlug)}
           style={{ width: '100%' }}
         >
@@ -501,6 +525,60 @@ function parseLrcOrText(text: string): { time: number; text: string }[] {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {showApiKeyModal && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="import-modal-overlay" 
+          onClick={(e) => { if (e.target === e.currentTarget) setShowApiKeyModal(false); }}
+        >
+          <div className="import-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px' }}>
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Key size={18} style={{ color: 'var(--electric-blue, #00f3ff)' }} />
+                <h3>AssemblyAI Configuration</h3>
+              </div>
+              <button type="button" onClick={() => setShowApiKeyModal(false)}><X size={18} /></button>
+            </div>
+            <div className="import-form" style={{ gap: '16px' }}>
+              <p style={{ fontSize: '13px', color: 'var(--soft-stone, #9ca3af)', lineHeight: 1.5, margin: 0 }}>
+                Automatic AI transcription requires an AssemblyAI API key. You can get a free API key at{' '}
+                <a 
+                  href="https://www.assemblyai.com" 
+                  target="_blank" 
+                  rel="noreferrer" 
+                  style={{ color: 'var(--electric-blue, #00f3ff)', textDecoration: 'underline' }}
+                >
+                  assemblyai.com
+                </a>.
+              </p>
+              <div className="form-group">
+                <label>AssemblyAI API Key</label>
+                <input 
+                  type="password" 
+                  value={apiKey} 
+                  onChange={(e) => setApiKey(e.target.value)} 
+                  placeholder="Paste your AssemblyAI API Key here..." 
+                  autoFocus
+                />
+              </div>
+              <div className="modal-footer" style={{ marginTop: '4px' }}>
+                <Button type="button" variant="ghost" onClick={() => setShowApiKeyModal(false)}>Cancel</Button>
+                <Button 
+                  type="button" 
+                  variant="primary" 
+                  onClick={() => {
+                    localStorage.setItem('assemblyai_api_key', apiKey.trim());
+                    setShowApiKeyModal(false);
+                  }}
+                >
+                  Save Key
+                </Button>
+              </div>
+            </div>
           </div>
         </div>,
         document.body
