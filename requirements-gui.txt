@@ -1,0 +1,3 @@
+# Dependencies for Desktop PyQt6 GUI Studio
+-r requirements.txt
+PyQt6>=6.6.0

@@ -1,0 +1,13 @@
+.git
+.github
+node_modules
+web/node_modules
+web/dist
+.venv
+venv
+__pycache__
+*.pyc
+output/*.mp4
+.DS_Store
+Thumbs.db
+libopenshot-develop

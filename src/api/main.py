@@ -14,17 +14,29 @@ from src.core.ai_transcriber import generate_ai_lyrics
 
 app = FastAPI(title="Lyric Video Generator API")
 
+@app.on_event("startup")
+def ensure_directories():
+    """Ensure all required media directories exist on container startup."""
+    output_dir = PROJECT_ROOT / "output"
+    for d in [INPUT_AUDIO_DIR, INPUT_LYRICS_DIR, INPUT_BACKGROUNDS_DIR, output_dir]:
+        d.mkdir(parents=True, exist_ok=True)
+
 @app.get("/")
 async def root():
     return {"message": "Lyric Video Generator API is running", "version": "0.1.2"}
 
-# Enable CORS for React development
+@app.get("/health")
+async def health():
+    return {"status": "ok", "service": "lyric-video-generator-api", "version": "0.1.2"}
+
+# Enable CORS for React development and Vercel production
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, restrict this to your frontend URL
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # Storage for active generation jobs (simplified for MVP)
@@ -267,4 +279,6 @@ async def auto_lyrics(slug: str):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    import os
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("src.api.main:app", host="0.0.0.0", port=port, reload=False)
