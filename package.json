@@ -3,6 +3,7 @@
   "version": "0.1.2",
   "private": true,
   "scripts": {
+    "postinstall": "cd web && npm install",
     "install:all": "npm install && cd web && npm install",
     "build": "cd web && npm run build",
     "dev": "concurrently -n \"API,WEB\" -c \"blue.bold,cyan.bold\" \"python -m src.api.main\" \"npm run web:dev\"",
