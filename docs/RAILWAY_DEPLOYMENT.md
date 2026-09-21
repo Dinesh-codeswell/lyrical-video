@@ -85,7 +85,7 @@ Once you have your Railway URL (e.g., `https://your-service.up.railway.app`):
      "rewrites": [
        {
          "source": "/api/(.*)",
-         "destination": "https://your-service.up.railway.app/api/$1"
+         "destination": "https://web-production-b506fe.up.railway.app/api/$1"
        },
        {
          "source": "/((?!api/).*)",

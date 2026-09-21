@@ -9,7 +9,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://lyrics-video-generator-s7tr.onrender.com/api/$1"
+      "destination": "https://web-production-b506fe.up.railway.app/api/$1"
     },
     {
       "source": "/((?!api/).*)",
