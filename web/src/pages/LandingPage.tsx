@@ -4,7 +4,7 @@ import { Hero } from '../components/landing/Hero';
 import { Workflow } from '../components/landing/Workflow';
 import { Features } from '../components/landing/Features';
 import { Specs } from '../components/landing/Specs';
-import { Creators } from '../components/landing/Creators';
+// import { Creators } from '../components/landing/Creators';
 import { Link } from 'react-router-dom';
 import './LandingPage.css';
 
@@ -30,8 +30,8 @@ export const LandingPage: React.FC = () => {
         {/* 4. Benchmark Runtimes & Specs Sheet */}
         <Specs />
 
-        {/* 5. Production Creators & Case Studies */}
-        <Creators />
+        {/* 5. Production Creators & Case Studies (Commented out until live reviews are collected) */}
+        {/* <Creators /> */}
 
         {/* 6. Pre-Footer Action Stage */}
         <section className="allfeat-prefooter-stage">
@@ -76,7 +76,7 @@ export const LandingPage: React.FC = () => {
               <a href="#pipeline">Pipeline</a>
               <a href="#architecture">Capabilities</a>
               <a href="#benchmarks">Benchmarks</a>
-              <a href="#creators">Creators</a>
+              {/* <a href="#creators">Creators</a> */}
               <Link to="/dashboard">Studio Editor</Link>
             </nav>
           </div>

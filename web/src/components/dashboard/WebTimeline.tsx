@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import WaveSurfer from 'wavesurfer.js';
 import { 
   Play, Pause, SkipBack, SkipForward, ChevronLeft, ChevronRight, 
@@ -207,9 +208,12 @@ const EditLyricModal: React.FC<{
   title: string;
 }> = ({ initialText, onSave, onCancel, title }) => {
   const [text, setText] = useState(initialText);
-  return (
-    <div className="lyric-modal-overlay">
-      <div className="lyric-modal">
+  return typeof document !== 'undefined' ? createPortal(
+    <div 
+      className="lyric-modal-overlay"
+      onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
+    >
+      <div className="lyric-modal" onClick={(e) => e.stopPropagation()}>
         <h3>{title}</h3>
         <textarea 
           autoFocus
@@ -228,8 +232,9 @@ const EditLyricModal: React.FC<{
           <Button variant="primary" size="sm" onClick={() => onSave(text)}>Save</Button>
         </div>
       </div>
-    </div>
-  );
+    </div>,
+    document.body
+  ) : null;
 };
 
 // ──────────────────────────────────────────────────────────────────────────────

@@ -91,3 +91,6 @@ input/backgrounds/*
 # Themes (keep default.json public, ignore custom runtime themes if any)
 themes/*.json
 !themes/default.json
+
+# Local vendor/experiments
+libopenshot-develop/

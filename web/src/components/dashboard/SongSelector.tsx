@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Music, Upload, RefreshCw, FileJson, Video, Plus, X, Sparkles, Trash2, Settings2, Disc3 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import './SongSelector.css';
@@ -342,12 +343,15 @@ function parseLrcOrText(text: string): { time: number; text: string }[] {
         </Button>
       </div>
 
-      {showNew && (
-        <div className="import-modal-overlay">
-          <div className="import-modal">
+      {showNew && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="import-modal-overlay" 
+          onClick={(e) => { if (e.target === e.currentTarget) setShowNew(false); }}
+        >
+          <div className="import-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>New Song from Text</h3>
-              <button onClick={() => setShowNew(false)}><X size={18} /></button>
+              <button type="button" onClick={() => setShowNew(false)}><X size={18} /></button>
             </div>
             <form onSubmit={handleCreateNew} className="import-form">
               <div className="form-group">
@@ -381,15 +385,25 @@ function parseLrcOrText(text: string): { time: number; text: string }[] {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {showImport && (
-        <div className="import-modal-overlay">
-          <div className="import-modal">
+      {showImport && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="import-modal-overlay" 
+          onClick={(e) => { 
+            if (e.target === e.currentTarget) { 
+              setShowImport(false); 
+              setIsEditing(false); 
+              setSongName(''); 
+            } 
+          }}
+        >
+          <div className="import-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>{isEditing ? 'Re-Configure Song' : 'Import Song'}</h3>
-              <button onClick={() => { setShowImport(false); setIsEditing(false); setSongName(''); }}><X size={18} /></button>
+              <button type="button" onClick={() => { setShowImport(false); setIsEditing(false); setSongName(''); }}><X size={18} /></button>
             </div>
             <form onSubmit={handleImport} className="import-form">
               <div className="form-group">
@@ -488,7 +502,8 @@ function parseLrcOrText(text: string): { time: number; text: string }[] {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
