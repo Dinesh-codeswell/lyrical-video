@@ -30,6 +30,42 @@ export interface Theme {
   animation_speed: number; // 0.1 to 2.0 multiplier
   aspect_ratio: '16:9' | '9:16' | '1:1' | '4:5';
   fps: 24 | 30 | 60;
+
+  // Visual Effects & Open-Source Shaders
+  active_filter: VideoFilterType;
+  filter_intensity: number; // 0 to 100
+  ambient_particles: AmbientParticleType;
+  vignette_enabled: boolean;
+}
+
+export type VideoFilterType = 
+  | 'none'
+  | 'teal-orange'
+  | 'vintage-1977'
+  | 'silver-noir'
+  | 'pastel-dream'
+  | 'cyberpunk-neon'
+  | 'sunset-gold'
+  | 'film-grain'
+  | 'vhs-glitch'
+  | 'crt-monitor'
+  | 'cinematic-vignette'
+  | 'prism-leak';
+
+export type AmbientParticleType =
+  | 'none'
+  | 'starfield'
+  | 'dust-motes'
+  | 'audio-pulse';
+
+export interface VisualEffect {
+  id: VideoFilterType;
+  name: string;
+  category: 'color' | 'texture' | 'retro';
+  tag: string;
+  description: string;
+  cssFilter?: string;
+  previewGradient: string;
 }
 
 export interface LyricClip {
@@ -78,6 +114,12 @@ export const DEFAULTS: Theme = {
   animation_speed: 1.0,
   aspect_ratio: "16:9",
   fps: 30,
+
+  // Visual Effects & Open-Source Shaders
+  active_filter: "none",
+  filter_intensity: 80,
+  ambient_particles: "none",
+  vignette_enabled: false,
 };
 
 export interface ThemePreset {
@@ -228,4 +270,110 @@ export const THEME_PRESETS: ThemePreset[] = [
     }
   },
 ];
+
+export const VISUAL_EFFECTS: VisualEffect[] = [
+  {
+    id: 'none',
+    name: 'Normal (Raw)',
+    category: 'color',
+    tag: 'ORIGINAL',
+    description: 'Clean, unprocessed original source colors',
+    previewGradient: 'linear-gradient(135deg, #2b2b2b, #151515)',
+  },
+  {
+    id: 'teal-orange',
+    name: 'Teal & Orange',
+    category: 'color',
+    tag: 'CINEMATIC',
+    description: 'Hollywood blockbuster grade with cool shadows and warm highlights',
+    cssFilter: 'contrast(1.18) saturate(1.3) hue-rotate(-12deg)',
+    previewGradient: 'linear-gradient(135deg, #008080, #ff8c00)',
+  },
+  {
+    id: 'vintage-1977',
+    name: 'Vintage 1977',
+    category: 'retro',
+    tag: '70S ANALOG',
+    description: 'Warm analog nostalgia with soft sepia highlights and faded contrast',
+    cssFilter: 'sepia(0.35) contrast(1.1) saturate(1.25) brightness(1.05)',
+    previewGradient: 'linear-gradient(135deg, #d4a373, #faedcd)',
+  },
+  {
+    id: 'silver-noir',
+    name: 'Silver Noir',
+    category: 'color',
+    tag: 'MONOCHROME',
+    description: 'Deep contrast classic monochrome with rich silver highlights',
+    cssFilter: 'grayscale(1) contrast(1.35) brightness(0.95)',
+    previewGradient: 'linear-gradient(135deg, #e5e5e5, #171717)',
+  },
+  {
+    id: 'pastel-dream',
+    name: 'Pastel Dream',
+    category: 'color',
+    tag: 'BLOOM GLOW',
+    description: 'Soft luminous bloom glow with lifted pastel shadows',
+    cssFilter: 'contrast(0.92) brightness(1.15) saturate(1.25)',
+    previewGradient: 'linear-gradient(135deg, #fbcfe8, #a7f3d0)',
+  },
+  {
+    id: 'cyberpunk-neon',
+    name: 'Cyberpunk Neon',
+    category: 'color',
+    tag: 'HYPER GLOW',
+    description: 'High-contrast electric cyan and saturated ultraviolet hues',
+    cssFilter: 'contrast(1.3) saturate(1.75) hue-rotate(180deg)',
+    previewGradient: 'linear-gradient(135deg, #06b6d4, #ec4899)',
+  },
+  {
+    id: 'sunset-gold',
+    name: 'Golden Hour',
+    category: 'color',
+    tag: 'WARM AMBER',
+    description: 'Radiant amber sunset glow with rich golden radiance',
+    cssFilter: 'sepia(0.2) saturate(1.45) contrast(1.1) brightness(1.05)',
+    previewGradient: 'linear-gradient(135deg, #f59e0b, #ef4444)',
+  },
+  {
+    id: 'film-grain',
+    name: '35mm Film Grain',
+    category: 'texture',
+    tag: 'ANALOG TEXTURE',
+    description: 'Authentic Kodak motion picture organic film noise texture',
+    previewGradient: 'linear-gradient(135deg, #3f3f46, #71717a)',
+  },
+  {
+    id: 'vhs-glitch',
+    name: 'VHS Retro Tape',
+    category: 'retro',
+    tag: 'CRT GLITCH',
+    description: 'Analog video tape scanlines, chromatic RGB shift and tracking flutter',
+    previewGradient: 'linear-gradient(135deg, #06b6d4, #f43f5e)',
+  },
+  {
+    id: 'crt-monitor',
+    name: 'CRT Arcade Scanlines',
+    category: 'retro',
+    tag: 'RASTER',
+    description: 'Cathode-ray tube phosphor scanlines and retro monitor curvature',
+    previewGradient: 'linear-gradient(135deg, #10b981, #064e3b)',
+  },
+  {
+    id: 'cinematic-vignette',
+    name: 'Cinematic Vignette',
+    category: 'texture',
+    tag: 'OPTICAL LENS',
+    description: 'Natural optical edge falloff that centers focus onto lyrics',
+    previewGradient: 'radial-gradient(circle, #52525b 30%, #09090b 100%)',
+  },
+  {
+    id: 'prism-leak',
+    name: 'Prism Light Leak',
+    category: 'texture',
+    tag: 'LIGHT FLARE',
+    description: 'Soft anamorphic rainbow light flare and floating optical streaks',
+    previewGradient: 'linear-gradient(135deg, rgba(239,68,68,0.8), rgba(245,158,11,0.8), rgba(59,130,246,0.8))',
+  },
+];
+
 

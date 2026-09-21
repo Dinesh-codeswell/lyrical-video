@@ -59,6 +59,7 @@ export const formatSMPTE = (time: number, fps: number = 30, useFrames: boolean =
 
 interface TimelineRulerProps {
   duration: number;
+  totalWidth: number;
   zoom: number;
   fps: number;
   markers: Marker[];
@@ -69,6 +70,7 @@ interface TimelineRulerProps {
 
 const TimelineRuler: React.FC<TimelineRulerProps> = ({ 
   duration, 
+  totalWidth,
   zoom, 
   fps, 
   markers, 
@@ -101,7 +103,7 @@ const TimelineRuler: React.FC<TimelineRulerProps> = ({
   }
 
   const ticks: React.ReactNode[] = [];
-  const maxTime = Math.max(duration, 10);
+  const maxTime = Math.max(duration, (totalWidth + 200) / zoom, 25);
   const minorInterval = majorInterval / minorSubdivisions;
 
   for (let t = 0; t <= maxTime; t += minorInterval) {
@@ -261,6 +263,20 @@ export const WebTimeline: React.FC<WebTimelineProps> = ({
   const [zoom, setZoom] = useState(120);
   const [isReady, setIsReady] = useState(false);
   const [useFramesFormat, setUseFramesFormat] = useState(true);
+  const [scrollerWidth, setScrollerWidth] = useState(1400);
+
+  useEffect(() => {
+    if (!scrollRef.current) return;
+    const updateWidth = () => {
+      if (scrollRef.current) {
+        setScrollerWidth(scrollRef.current.clientWidth);
+      }
+    };
+    updateWidth();
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(scrollRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   // Tools & Selection
   const [activeTool, setActiveTool] = useState<'select' | 'razor'>('select');
@@ -805,7 +821,7 @@ export const WebTimeline: React.FC<WebTimelineProps> = ({
   };
 
   const activeIndex = clips.findIndex(c => currentTime >= c.start_time && currentTime < c.end_time);
-  const totalContainerWidth = Math.max(duration * zoom, 800);
+  const totalContainerWidth = Math.max(duration * zoom, scrollerWidth);
 
   return (
     <div className={`web-timeline nle-editor tool-${activeTool}`}>
@@ -1107,13 +1123,14 @@ export const WebTimeline: React.FC<WebTimelineProps> = ({
           <div 
             className="tracks-container" 
             ref={tracksAreaRef}
-            style={{ width: `${totalContainerWidth}px` }}
+            style={{ width: `${totalContainerWidth}px`, minWidth: '100%' }}
             onMouseMove={handleTracksMouseMove}
             onMouseLeave={handleTracksMouseLeave}
           >
             {/* 1. Time Ruler */}
             <TimelineRuler 
               duration={duration} 
+              totalWidth={totalContainerWidth}
               zoom={zoom} 
               fps={fps}
               markers={markers}

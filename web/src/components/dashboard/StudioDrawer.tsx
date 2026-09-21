@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
 import type { Theme } from '../../types';
-import { THEME_PRESETS } from '../../types';
+import { THEME_PRESETS, VISUAL_EFFECTS } from '../../types';
 import { 
   FolderPlus, Palette, Type, Wand2, Mic2, SlidersHorizontal, 
   ChevronLeft, ChevronRight, X, Smartphone, Monitor, Square, 
-  AlignLeft, AlignCenter, AlignRight, Check
+  AlignLeft, AlignCenter, AlignRight, Check, Sparkles
 } from 'lucide-react';
 import { SongSelector } from './SongSelector';
 import './StudioDrawer.css';
 
-export type StudioTab = 'media' | 'presets' | 'text' | 'motion' | 'karaoke' | 'canvas';
+export type StudioTab = 'media' | 'presets' | 'effects' | 'text' | 'motion' | 'karaoke' | 'canvas';
 
 interface StudioDrawerProps {
   theme: Theme;
@@ -33,6 +33,7 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
   onTabChange
 }) => {
   const [internalTab, setInternalTab] = useState<StudioTab>('media');
+  const [effectCategory, setEffectCategory] = useState<'all' | 'color' | 'texture' | 'retro'>('all');
   const currentTab = controlledTab || internalTab;
 
   const handleSelectTab = (tab: StudioTab) => {
@@ -87,6 +88,16 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
           >
             <Palette size={18} />
             <span className="rail-tab-label">Presets</span>
+          </button>
+
+          <button 
+            type="button"
+            className={`rail-tab-btn ${currentTab === 'effects' && isOpen ? 'active' : ''}`}
+            onClick={() => handleSelectTab('effects')}
+            title="Visual Effects, Film Filters & Shaders"
+          >
+            <Sparkles size={18} />
+            <span className="rail-tab-label">Effects</span>
           </button>
 
           <button 
@@ -159,6 +170,12 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
               <>
                 <h3 className="drawer-title">Curated Presets</h3>
                 <span className="drawer-badge">{THEME_PRESETS.length} Styles</span>
+              </>
+            )}
+            {currentTab === 'effects' && (
+              <>
+                <h3 className="drawer-title">Effects & Filters</h3>
+                <span className="drawer-badge">{theme.active_filter.toUpperCase()}</span>
               </>
             )}
             {currentTab === 'text' && (
@@ -257,6 +274,110 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
                             <Check size={14} />
                           </div>
                         )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* TAB: VISUAL EFFECTS & SHADERS */}
+          {currentTab === 'effects' && (
+            <div className="drawer-section effects-tab-content">
+              {/* Category Filter Pills */}
+              <div className="effects-category-filter">
+                {(['all', 'color', 'texture', 'retro'] as const).map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    className={`cat-pill-btn ${effectCategory === cat ? 'active' : ''}`}
+                    onClick={() => setEffectCategory(cat)}
+                  >
+                    {cat === 'all' ? 'All Filters' : cat.charAt(0).toUpperCase() + cat.slice(1)}
+                  </button>
+                ))}
+              </div>
+
+              {/* Filter Intensity Slider */}
+              {theme.active_filter !== 'none' && (
+                <div className="control-group">
+                  <div className="group-header-flex">
+                    <label className="group-label">Filter Intensity</label>
+                    <span className="group-value-pill">{theme.filter_intensity || 80}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="10"
+                    max="100"
+                    value={theme.filter_intensity || 80}
+                    onChange={(e) => handleChange('filter_intensity', parseInt(e.target.value))}
+                    className="pro-range"
+                  />
+                </div>
+              )}
+
+              {/* Vignette Toggle */}
+              <div className="toggle-row">
+                <div>
+                  <div className="toggle-label">Cinematic Lens Vignette</div>
+                  <div className="toggle-desc">Darken outer frame edges to focus lyrics</div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={theme.vignette_enabled || false}
+                  onChange={(e) => handleChange('vignette_enabled', e.target.checked)}
+                  className="pro-switch"
+                />
+              </div>
+
+              {/* Ambient Dynamic Particles */}
+              <div className="control-group">
+                <label className="group-label">Ambient Particle Shaders</label>
+                <div className="segmented-particle-selector">
+                  {[
+                    { id: 'none', label: 'Off' },
+                    { id: 'starfield', label: 'Starfield' },
+                    { id: 'dust-motes', label: 'Dust Motes' },
+                    { id: 'audio-pulse', label: 'Pulse Wave' },
+                  ].map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      className={`particle-pill-btn ${theme.ambient_particles === p.id ? 'active' : ''}`}
+                      onClick={() => handleChange('ambient_particles', p.id)}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Visual Effects & Shaders Grid */}
+              <div className="effects-grid">
+                {VISUAL_EFFECTS.filter(e => effectCategory === 'all' || e.category === effectCategory).map((effect) => {
+                  const isActive = theme.active_filter === effect.id;
+                  return (
+                    <div
+                      key={effect.id}
+                      className={`effect-card ${isActive ? 'selected' : ''}`}
+                      onClick={() => handleChange('active_filter', effect.id)}
+                    >
+                      <div 
+                        className="effect-preview-swatch"
+                        style={{ background: effect.previewGradient }}
+                      >
+                        <span className="effect-category-badge">{effect.tag}</span>
+                        {isActive && (
+                          <div className="effect-check-indicator">
+                            <Check size={14} />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="effect-info">
+                        <div className="effect-name">{effect.name}</div>
+                        <div className="effect-desc">{effect.description}</div>
                       </div>
                     </div>
                   );

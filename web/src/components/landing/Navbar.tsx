@@ -27,8 +27,6 @@ export const Navbar: React.FC = () => {
           <span className="capsule-divider" />
           <a href="#benchmarks" className="capsule-link">Benchmarks</a>
           <span className="capsule-divider" />
-          <Link to="/blog" className="capsule-link">Dispatches</Link>
-          <span className="capsule-divider" />
           <Link to="/dashboard" className="capsule-cta-link">
             <button type="button" className="btn-pill-primary">
               Launch Studio

@@ -1,14 +1,13 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { Button } from '../components/ui/Button';
 import { Link } from 'react-router-dom';
 import { 
   Save, Undo, Redo, Download, HelpCircle, Maximize, Eye, EyeOff, 
-  CheckCircle2, FolderPlus, Palette, Type, Wand2, Mic2, SlidersHorizontal
+  CheckCircle2
 } from 'lucide-react';
 import { StudioDrawer } from '../components/dashboard/StudioDrawer';
 import type { StudioTab } from '../components/dashboard/StudioDrawer';
 import { WebTimeline } from '../components/dashboard/WebTimeline';
-import { DEFAULTS } from '../types';
+import { DEFAULTS, VISUAL_EFFECTS } from '../types';
 import type { Theme, LyricClip, Marker } from '../types';
 import './Dashboard.css';
 
@@ -63,6 +62,16 @@ export const Dashboard: React.FC = () => {
   const previewScale = (previewDimensions.width / baseDims.width) || 0.5;
   const stageHeight = previewDimensions.height || 540;
   const lineHeight = (theme.font_size * theme.line_spacing) * previewScale;
+
+  // Visual Effects Computation
+  const activeEffect = useMemo(() => {
+    return VISUAL_EFFECTS.find(e => e.id === theme.active_filter);
+  }, [theme.active_filter]);
+
+  const activeFilterCSS = useMemo(() => {
+    if (!activeEffect?.cssFilter || theme.active_filter === 'none') return undefined;
+    return activeEffect.cssFilter;
+  }, [activeEffect, theme.active_filter]);
 
   useEffect(() => {
     if (!stageRef.current) return;
@@ -489,133 +498,6 @@ export const Dashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Main Studio Header */}
-      <header className="dashboard-header">
-        <div className="header-left">
-          <Link to="/" className="dashboard-brand">
-            <span className="text-accent">LV</span> Studio
-          </Link>
-          <div className="divider"></div>
-          <div className="song-title-display">
-            {selectedSong ? `${songMetadata.artist} - ${songMetadata.title}` : 'Select a Song to Begin'}
-          </div>
-        </div>
-
-        {/* Center: Quick Section Switcher */}
-        <div className="header-section-shortcuts">
-          <button 
-            className={`shortcut-tab-btn ${isDrawerOpen && activeDrawerTab === 'media' ? 'active' : ''}`}
-            onClick={() => { setActiveDrawerTab('media'); setIsDrawerOpen(true); }}
-            title="Media Library & Import"
-          >
-            <FolderPlus size={14} />
-            <span>Media</span>
-          </button>
-          <button 
-            className={`shortcut-tab-btn ${isDrawerOpen && activeDrawerTab === 'presets' ? 'active' : ''}`}
-            onClick={() => { setActiveDrawerTab('presets'); setIsDrawerOpen(true); }}
-            title="Curated Style Presets"
-          >
-            <Palette size={14} />
-            <span>Presets</span>
-          </button>
-          <button 
-            className={`shortcut-tab-btn ${isDrawerOpen && activeDrawerTab === 'text' ? 'active' : ''}`}
-            onClick={() => { setActiveDrawerTab('text'); setIsDrawerOpen(true); }}
-            title="Typography & Text"
-          >
-            <Type size={14} />
-            <span>Text</span>
-          </button>
-          <button 
-            className={`shortcut-tab-btn ${isDrawerOpen && activeDrawerTab === 'motion' ? 'active' : ''}`}
-            onClick={() => { setActiveDrawerTab('motion'); setIsDrawerOpen(true); }}
-            title="Motion Engine"
-          >
-            <Wand2 size={14} />
-            <span>Motion</span>
-          </button>
-          <button 
-            className={`shortcut-tab-btn ${isDrawerOpen && activeDrawerTab === 'karaoke' ? 'active' : ''}`}
-            onClick={() => { setActiveDrawerTab('karaoke'); setIsDrawerOpen(true); }}
-            title="Karaoke & Glow"
-          >
-            <Mic2 size={14} />
-            <span>Karaoke</span>
-          </button>
-          <button 
-            className={`shortcut-tab-btn ${isDrawerOpen && activeDrawerTab === 'canvas' ? 'active' : ''}`}
-            onClick={() => { setActiveDrawerTab('canvas'); setIsDrawerOpen(true); }}
-            title="Canvas & Brand"
-          >
-            <SlidersHorizontal size={14} />
-            <span>Canvas</span>
-          </button>
-        </div>
-
-        <div className="header-right">
-          {/* Workspace Layout Selector */}
-          <div className="workspace-mode-selector">
-            <button 
-              className={`workspace-btn ${workspaceMode === 'stage-focus' ? 'active' : ''}`}
-              onClick={() => setWorkspaceMode(workspaceMode === 'stage-focus' ? 'default' : 'stage-focus')}
-              title="Stage Focus (Large Video Preview)"
-            >
-              Stage Focus
-            </button>
-            <button 
-              className={`workspace-btn ${workspaceMode === 'timeline-focus' ? 'active' : ''}`}
-              onClick={() => setWorkspaceMode(workspaceMode === 'timeline-focus' ? 'default' : 'timeline-focus')}
-              title="Timeline Focus (Expanded Multi-Track)"
-            >
-              Timeline Focus
-            </button>
-          </div>
-
-          <div className="divider"></div>
-
-          {/* History Actions */}
-          <div className="toolbar-group">
-            <Button variant="ghost" size="sm" onClick={handleSaveLyrics} disabled={!selectedSong} title="Save Project">
-              <Save size={14} /> Save
-            </Button>
-            <button 
-              className={`header-action-icon-btn ${historyIndex > 0 ? 'active' : ''}`}
-              onClick={handleUndo} 
-              disabled={!selectedSong || historyIndex <= 0}
-              title="Undo (Ctrl+Z)"
-            >
-              <Undo size={14} />
-            </button>
-            <button 
-              className={`header-action-icon-btn ${historyIndex < historyStack.length - 1 ? 'active' : ''}`}
-              onClick={handleRedo} 
-              disabled={!selectedSong || historyIndex >= historyStack.length - 1}
-              title="Redo (Ctrl+Y)"
-            >
-              <Redo size={14} />
-            </button>
-          </div>
-
-          <div className="divider"></div>
-
-          <Button 
-            variant="primary" 
-            size="sm" 
-            onClick={handleExport}
-            disabled={!selectedSong || isExporting}
-          >
-            {isExporting ? `Rendering (${renderProgress}%)` : 'Export Video'}
-          </Button>
-
-          {jobId && !isExporting && (
-            <a href={`/api/download/${jobId}`} download>
-              <Button variant="ghost" size="sm" className="success-btn"><Download size={14} /> Download</Button>
-            </a>
-          )}
-        </div>
-      </header>
-
       {apiError && (
         <div className="api-error-banner">
           <HelpCircle size={16} />
@@ -639,29 +521,126 @@ export const Dashboard: React.FC = () => {
               onTabChange={setActiveDrawerTab}
             />
 
-            {/* Maximized Preview Stage */}
+            {/* Maximized Preview Stage Monitor */}
             <div className="preview-stage-container">
+              {/* Studio Monitor Top Bar */}
               <div className="stage-controls-bar">
-                <span className="stage-aspect-tag">{theme.aspect_ratio}</span>
-                {theme.aspect_ratio === '9:16' && (
+                {/* Left: Brand Wordmark + Song Pill + Aspect + Safe Zones + Fullscreen */}
+                <div className="stage-controls-left">
+                  <Link to="/" className="stage-brand-link" title="Back to Home">
+                    <span className="brand-dot-pulse" />
+                    <span className="brand-name">LyricGen</span>
+                  </Link>
+
+                  <span className="stage-controls-divider" />
+
+                  <span className="stage-song-pill" title={selectedSong ? `${songMetadata.artist} - ${songMetadata.title}` : "Select a Song"}>
+                    {selectedSong 
+                      ? (songMetadata.artist ? `${songMetadata.artist} - ${songMetadata.title || selectedSong}` : (songMetadata.title || selectedSong))
+                      : 'No Song Selected'
+                    }
+                  </span>
+
+                  <span className="stage-aspect-tag">{theme.aspect_ratio}</span>
+
+                  {theme.aspect_ratio === '9:16' && (
+                    <button
+                      type="button"
+                      className={`stage-tool-btn ${showSafeZones ? 'active' : ''}`}
+                      onClick={() => setShowSafeZones(!showSafeZones)}
+                      title="Toggle TikTok / Reels UI Safe Zones"
+                    >
+                      {showSafeZones ? <EyeOff size={13} /> : <Eye size={13} />}
+                      <span>Safe Zones</span>
+                    </button>
+                  )}
+
                   <button
                     type="button"
-                    className={`stage-tool-btn ${showSafeZones ? 'active' : ''}`}
-                    onClick={() => setShowSafeZones(!showSafeZones)}
-                    title="Toggle TikTok / Reels UI Safe Zones"
+                    className="stage-tool-btn"
+                    onClick={toggleFullScreen}
+                    title="Toggle Fullscreen"
                   >
-                    {showSafeZones ? <EyeOff size={13} /> : <Eye size={13} />}
-                    <span>Safe Zones</span>
+                    <Maximize size={13} />
                   </button>
-                )}
-                <button
-                  type="button"
-                  className="stage-tool-btn"
-                  onClick={toggleFullScreen}
-                  title="Toggle Fullscreen"
-                >
-                  <Maximize size={13} />
-                </button>
+                </div>
+
+                {/* Center: Workspace Focus Modes */}
+                <div className="stage-controls-center">
+                  <div className="workspace-mode-selector">
+                    <button 
+                      type="button"
+                      className={`workspace-btn ${workspaceMode === 'stage-focus' ? 'active' : ''}`}
+                      onClick={() => setWorkspaceMode(workspaceMode === 'stage-focus' ? 'default' : 'stage-focus')}
+                      title="Stage Focus (Maximized Video Monitor)"
+                    >
+                      Stage Focus
+                    </button>
+                    <button 
+                      type="button"
+                      className={`workspace-btn ${workspaceMode === 'timeline-focus' ? 'active' : ''}`}
+                      onClick={() => setWorkspaceMode(workspaceMode === 'timeline-focus' ? 'default' : 'timeline-focus')}
+                      title="Timeline Focus (Maximized Multi-Track)"
+                    >
+                      Timeline Focus
+                    </button>
+                  </div>
+                </div>
+
+                {/* Right: Save, Undo/Redo, Export, Download */}
+                <div className="stage-controls-right">
+                  <button 
+                    type="button"
+                    className="stage-action-btn"
+                    onClick={handleSaveLyrics}
+                    disabled={!selectedSong}
+                    title="Save Project (Ctrl+S)"
+                  >
+                    <Save size={13} />
+                    <span>Save</span>
+                  </button>
+
+                  <div className="stage-history-group">
+                    <button 
+                      type="button"
+                      className={`stage-icon-btn ${historyIndex > 0 ? 'active' : ''}`}
+                      onClick={handleUndo} 
+                      disabled={!selectedSong || historyIndex <= 0}
+                      title="Undo (Ctrl+Z)"
+                    >
+                      <Undo size={13} />
+                    </button>
+                    <button 
+                      type="button"
+                      className={`stage-icon-btn ${historyIndex < historyStack.length - 1 ? 'active' : ''}`}
+                      onClick={handleRedo} 
+                      disabled={!selectedSong || historyIndex >= historyStack.length - 1}
+                      title="Redo (Ctrl+Y)"
+                    >
+                      <Redo size={13} />
+                    </button>
+                  </div>
+
+                  <span className="stage-controls-divider" />
+
+                  {jobId && !isExporting && (
+                    <a href={`/api/download/${jobId}`} download className="stage-download-link">
+                      <button type="button" className="btn-stage-download" title="Download Rendered Video">
+                        <Download size={13} />
+                        <span>Download</span>
+                      </button>
+                    </a>
+                  )}
+
+                  <button 
+                    type="button"
+                    className={`btn-stage-export ${isExporting ? 'exporting' : ''}`}
+                    onClick={handleExport}
+                    disabled={!selectedSong || isExporting}
+                  >
+                    {isExporting ? `Rendering (${renderProgress}%)` : 'Export Video'}
+                  </button>
+                </div>
               </div>
 
               <div 
@@ -681,6 +660,7 @@ export const Dashboard: React.FC = () => {
                     loop 
                     muted 
                     className="compositor-layer layer-bg"
+                    style={activeFilterCSS ? { filter: activeFilterCSS } : undefined}
                   />
                 )}
 
@@ -692,6 +672,33 @@ export const Dashboard: React.FC = () => {
                     opacity: theme.text_overlay_opacity / 100 
                   }} 
                 />
+
+                {/* Layer 2b: Visual Shaders & Film Overlays */}
+                {theme.active_filter === 'film-grain' && (
+                  <div className="compositor-layer layer-film-grain" />
+                )}
+                {theme.active_filter === 'vhs-glitch' && (
+                  <div className="compositor-layer layer-vhs-scanlines" />
+                )}
+                {theme.active_filter === 'crt-monitor' && (
+                  <div className="compositor-layer layer-crt-raster" />
+                )}
+                {theme.active_filter === 'prism-leak' && (
+                  <div className="compositor-layer layer-prism-streak" />
+                )}
+                {(theme.vignette_enabled || theme.active_filter === 'cinematic-vignette') && (
+                  <div className="compositor-layer layer-vignette-overlay" />
+                )}
+                {theme.ambient_particles && theme.ambient_particles !== 'none' && (
+                  <div className={`compositor-layer layer-particles particle-${theme.ambient_particles}`}>
+                    <div className="ambient-particle p-1" />
+                    <div className="ambient-particle p-2" />
+                    <div className="ambient-particle p-3" />
+                    <div className="ambient-particle p-4" />
+                    <div className="ambient-particle p-5" />
+                    <div className="ambient-particle p-6" />
+                  </div>
+                )}
 
                 {/* Layer 3: Branding / Logo */}
                 {theme.logo_path && (

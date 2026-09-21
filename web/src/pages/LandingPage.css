@@ -12,130 +12,7 @@
   position: relative;
 }
 
-/* ────────────────────────────────────────────────────────────────────────── */
-/* Dispatches / Engineering Notes Section                                    */
-/* ────────────────────────────────────────────────────────────────────────── */
 
-.allfeat-dispatches {
-  border-top: 1px solid var(--color-card-edge, #383835);
-  padding: var(--section-gap, 80px) 24px;
-  background-color: var(--color-charcoal-stage, #151515);
-}
-
-.dispatches-grid-3 {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
-  width: 100%;
-  text-align: left;
-}
-
-.dispatch-card {
-  text-decoration: none;
-  color: inherit;
-  padding: 0 !important;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  border-radius: var(--radius-cards, 12px);
-  background-color: var(--color-charcoal-stage, #151515);
-  box-shadow: var(--shadow-subtle, rgb(56, 56, 53) 0px 0px 0px 1px inset);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.dispatch-card:hover {
-  box-shadow: rgba(255, 251, 235, 0.2) 0px 0px 0px 1px inset;
-  transform: translateY(-2px);
-}
-
-.dispatch-img-frame {
-  width: 100%;
-  height: 190px;
-  overflow: hidden;
-  background: #0d0d0d;
-  border-bottom: 1px solid var(--color-card-edge, #383835);
-  position: relative;
-}
-
-.dispatch-cover-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.3s ease;
-}
-
-.dispatch-card:hover .dispatch-cover-img {
-  transform: scale(1.04);
-}
-
-.dispatch-card-body {
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-}
-
-.dispatch-meta-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 14px;
-}
-
-.read-time-tag {
-  font-family: var(--font-ui-monospace, monospace);
-  font-size: 11px;
-  color: var(--color-mute-cream, #b8b8b8);
-}
-
-.dispatch-card-title {
-  font-family: var(--font-tasa-orbiter, sans-serif);
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--color-warm-cream, #fffbeb);
-  margin-bottom: 10px;
-  line-height: 1.25;
-  letter-spacing: -0.01em;
-}
-
-.dispatch-card-excerpt {
-  font-family: var(--font-tasa-orbiter, sans-serif);
-  font-size: 13px;
-  line-height: 1.45;
-  color: var(--color-mute-cream, #b8b8b8);
-  margin-bottom: 24px;
-  flex: 1;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.dispatch-card-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-top: 16px;
-  border-top: 1px solid var(--color-card-edge, #383835);
-}
-
-.dispatch-date {
-  font-family: var(--font-ui-monospace, monospace);
-  font-size: 11px;
-  color: var(--color-ash-gray, #a6a6a6);
-}
-
-.dispatch-read-link {
-  font-family: var(--font-tasa-orbiter, sans-serif);
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--color-signal-teal, #00b18c);
-  transition: transform 0.15s ease;
-}
-
-.dispatch-card:hover .dispatch-read-link {
-  transform: translateX(3px);
-}
 
 /* ────────────────────────────────────────────────────────────────────────── */
 /* Pre-Footer Action Stage (Teal Radial Wash & Constellation Glyph)           */
@@ -309,9 +186,6 @@
 /* ────────────────────────────────────────────────────────────────────────── */
 
 @media (max-width: 900px) {
-  .dispatches-grid-3 {
-    grid-template-columns: 1fr;
-  }
   .prefooter-headline {
     font-size: 34px;
   }

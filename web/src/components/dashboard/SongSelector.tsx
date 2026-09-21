@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Music, Upload, RefreshCw, FileJson, Video, Plus, X, Sparkles, Trash2, Settings2 } from 'lucide-react';
+import { Music, Upload, RefreshCw, FileJson, Video, Plus, X, Sparkles, Trash2, Settings2, Disc3 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import './SongSelector.css';
 
@@ -246,9 +246,35 @@ function parseLrcOrText(text: string): { time: number; text: string }[] {
 
       <div className="song-list">
         {songs.length === 0 && !loading && (
-          <div className="empty-songs">
-            <Music size={24} />
-            <p>No songs found</p>
+          <div className="empty-songs-studio">
+            <div className="empty-disc-halo">
+              <Disc3 size={32} className="spin-slow" />
+            </div>
+            <h4 className="empty-title">Media Bin is Empty</h4>
+            <p className="empty-desc">
+              No audio tracks loaded yet. Import an MP3/WAV or stem track to synchronize with lyrics.
+            </p>
+            <div className="empty-actions">
+              <button 
+                type="button"
+                className="empty-cta-btn primary"
+                onClick={() => setShowImport(true)}
+              >
+                <Upload size={13} />
+                <span>Import Audio & Lyrics</span>
+              </button>
+              <button 
+                type="button"
+                className="empty-cta-btn ghost"
+                onClick={() => setShowNew(true)}
+              >
+                <Plus size={13} />
+                <span>Create New Project</span>
+              </button>
+            </div>
+            <div className="empty-drop-hint">
+              <span>Supports .mp3, .wav, .lrc, .srt</span>
+            </div>
           </div>
         )}
         
