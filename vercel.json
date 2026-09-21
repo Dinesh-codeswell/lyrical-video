@@ -1,6 +1,5 @@
 {
   "version": 2,
-  "public": true,
   "name": "lyric-video-generator",
   "framework": "vite",
   "installCommand": "npm install",
