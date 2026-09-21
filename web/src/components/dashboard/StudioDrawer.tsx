@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
-import type { Theme } from '../../types';
-import { THEME_PRESETS, VISUAL_EFFECTS } from '../../types';
+import type { Theme, LyricClip } from '../../types';
+import { THEME_PRESETS, VISUAL_EFFECTS, TRANSITIONS_CATALOG } from '../../types';
 import { 
   FolderPlus, Palette, Type, Wand2, Mic2, SlidersHorizontal, 
   ChevronLeft, ChevronRight, X, Smartphone, Monitor, Square, 
-  AlignLeft, AlignCenter, AlignRight, Check, Sparkles
+  AlignLeft, AlignCenter, AlignRight, Check, Sparkles, Layers
 } from 'lucide-react';
 import { SongSelector } from './SongSelector';
 import './StudioDrawer.css';
 
-export type StudioTab = 'media' | 'presets' | 'effects' | 'text' | 'motion' | 'karaoke' | 'canvas';
+export type StudioTab = 'media' | 'presets' | 'transitions' | 'effects' | 'text' | 'motion' | 'karaoke' | 'canvas';
 
 interface StudioDrawerProps {
   theme: Theme;
@@ -20,6 +20,8 @@ interface StudioDrawerProps {
   onToggleOpen: () => void;
   activeTab?: StudioTab;
   onTabChange?: (tab: StudioTab) => void;
+  clips?: LyricClip[];
+  onClipsChange?: (clips: LyricClip[], actionName?: string) => void;
 }
 
 export const StudioDrawer: React.FC<StudioDrawerProps> = ({
@@ -30,10 +32,13 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
   isOpen,
   onToggleOpen,
   activeTab: controlledTab,
-  onTabChange
+  onTabChange,
+  clips,
+  onClipsChange
 }) => {
   const [internalTab, setInternalTab] = useState<StudioTab>('media');
   const [effectCategory, setEffectCategory] = useState<'all' | 'color' | 'texture' | 'retro'>('all');
+  const [transitionCategory, setTransitionCategory] = useState<'all' | 'dissolve' | 'wipe' | 'motion' | 'light'>('all');
   const currentTab = controlledTab || internalTab;
 
   const handleSelectTab = (tab: StudioTab) => {
@@ -88,6 +93,16 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
           >
             <Palette size={18} />
             <span className="rail-tab-label">Presets</span>
+          </button>
+
+          <button 
+            type="button"
+            className={`rail-tab-btn ${currentTab === 'transitions' && isOpen ? 'active' : ''}`}
+            onClick={() => handleSelectTab('transitions')}
+            title="Inter-Clip Transitions & Wipes"
+          >
+            <Layers size={18} />
+            <span className="rail-tab-label">Transitions</span>
           </button>
 
           <button 
@@ -172,6 +187,12 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
                 <span className="drawer-badge">{THEME_PRESETS.length} Styles</span>
               </>
             )}
+            {currentTab === 'transitions' && (
+              <>
+                <h3 className="drawer-title">Clip Transitions</h3>
+                <span className="drawer-badge">{(theme.active_transition || 'CROSSFADE').toUpperCase()}</span>
+              </>
+            )}
             {currentTab === 'effects' && (
               <>
                 <h3 className="drawer-title">Effects & Filters</h3>
@@ -192,13 +213,13 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
             )}
             {currentTab === 'karaoke' && (
               <>
-                <h3 className="drawer-title">Karaoke & Glow</h3>
+                <h3 className="drawer-title">Karaoke Highlight</h3>
                 <span className="drawer-badge">{theme.highlight_mode.toUpperCase()}</span>
               </>
             )}
             {currentTab === 'canvas' && (
               <>
-                <h3 className="drawer-title">Canvas & Brand</h3>
+                <h3 className="drawer-title">Canvas & Layout</h3>
                 <span className="drawer-badge">{theme.aspect_ratio}</span>
               </>
             )}
@@ -210,7 +231,7 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
             onClick={onToggleOpen}
             title="Close Panel"
           >
-            <X size={15} />
+            <X size={16} />
           </button>
         </div>
 
@@ -227,26 +248,22 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
           {currentTab === 'presets' && (
             <div className="drawer-section presets-tab-content">
               <p className="section-instruction">
-                Click any aesthetic preset to instantly update typography, highlight colors, and background.
+                Select a production-ready color and typographical aesthetic.
               </p>
-              <div className="presets-vertical-grid">
+              <div className="presets-grid-pro">
                 {THEME_PRESETS.map((preset) => {
-                  const isSelected = theme.name === preset.name || 
-                    (theme.active_text_color === preset.theme.active_text_color && 
-                     theme.background_color === preset.theme.background_color);
+                  const isSelected = theme.name === preset.name;
                   return (
                     <div 
                       key={preset.id}
-                      className={`preset-card-pro ${isSelected ? 'active' : ''}`}
+                      className={`preset-card-pro ${isSelected ? 'selected' : ''}`}
                       onClick={() => handleApplyPreset(preset.theme)}
                     >
-                      <div className="preset-card-info">
-                        <div className="preset-card-headline">
-                          <span className="preset-name">{preset.name}</span>
-                          <span className="preset-badge-tag">{preset.badge}</span>
-                        </div>
-                        <p className="preset-description">{preset.description}</p>
+                      <div className="preset-card-header">
+                        <span className="preset-name">{preset.name}</span>
+                        <span className="preset-badge">{preset.badge}</span>
                       </div>
+                      <p className="preset-desc">{preset.description}</p>
 
                       <div className="preset-card-actions">
                         <div className="preset-swatches-pro">
@@ -278,6 +295,101 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          )}
+
+          {/* TAB: TRANSITIONS & WIPES */}
+          {currentTab === 'transitions' && (
+            <div className="drawer-section transitions-tab-content">
+              {/* Category Filter Pills */}
+              <div className="effects-category-filter">
+                {(['all', 'dissolve', 'wipe', 'motion', 'light'] as const).map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    className={`cat-pill-btn ${transitionCategory === cat ? 'active' : ''}`}
+                    onClick={() => setTransitionCategory(cat)}
+                  >
+                    {cat === 'all' ? 'All Transitions' : cat.charAt(0).toUpperCase() + cat.slice(1)}
+                  </button>
+                ))}
+              </div>
+
+              {/* Transition Duration Slider */}
+              <div className="control-group">
+                <div className="group-header-flex">
+                  <label className="group-label">Transition Duration</label>
+                  <span className="group-value-pill">{(theme.transition_duration || 0.4).toFixed(2)}s</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.1"
+                  max="1.5"
+                  step="0.05"
+                  value={theme.transition_duration || 0.4}
+                  onChange={(e) => handleChange('transition_duration', parseFloat(e.target.value))}
+                  className="pro-range"
+                />
+              </div>
+
+              {/* Quick Action: Apply to All Clips */}
+              {clips && clips.length > 0 && (
+                <div className="transition-quick-actions">
+                  <button
+                    type="button"
+                    className="btn-apply-all-transitions"
+                    onClick={() => {
+                      if (onClipsChange) {
+                        const updated = clips.map(c => ({
+                          ...c,
+                          transition: theme.active_transition,
+                          transition_duration: theme.transition_duration
+                        }));
+                        onClipsChange(updated, `Apply ${theme.active_transition} to All Clips`);
+                      }
+                    }}
+                    title="Apply current transition to every lyric clip on the timeline"
+                  >
+                    <Layers size={13} />
+                    <span>Apply "{theme.active_transition}" to All {clips.length} Clips</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Transition Cards 2-Column Grid */}
+              <div className="transitions-cards-grid">
+                {TRANSITIONS_CATALOG
+                  .filter(t => transitionCategory === 'all' || t.category === transitionCategory)
+                  .map((trans) => {
+                    const isSelected = theme.active_transition === trans.id;
+                    return (
+                      <div
+                        key={trans.id}
+                        className={`transition-card ${isSelected ? 'selected' : ''}`}
+                        onClick={() => handleChange('active_transition', trans.id)}
+                      >
+                        <div className="trans-card-preview">
+                          <div className={`trans-anim-box ${trans.previewClass}`}>
+                            <span className="anim-box-a">A</span>
+                            <span className="anim-box-b">B</span>
+                          </div>
+                        </div>
+                        <div className="trans-card-info">
+                          <div className="trans-card-header">
+                            <span className="trans-card-name">{trans.name}</span>
+                            <span className="trans-card-tag">{trans.tag}</span>
+                          </div>
+                          <p className="trans-card-desc">{trans.description}</p>
+                        </div>
+                        {isSelected && (
+                          <div className="trans-active-badge">
+                            <Check size={12} />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
               </div>
             </div>
           )}

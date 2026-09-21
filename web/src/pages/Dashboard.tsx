@@ -314,6 +314,63 @@ export const Dashboard: React.FC = () => {
     return line.text;
   };
 
+  // Active Clip Transition Calculation
+  const currentClip = clips[activeIndex];
+  const activeTransType = currentClip?.transition || theme.active_transition || 'crossfade';
+  const activeTransDuration = currentClip?.transition_duration || theme.transition_duration || 0.4;
+  const timeInClip = currentClip ? Math.max(0, currentTime - currentClip.start_time) : 0;
+  const isTransitioning = !!currentClip && timeInClip >= 0 && timeInClip < activeTransDuration;
+  const transitionProgress = isTransitioning ? Math.min(1, Math.max(0, timeInClip / activeTransDuration)) : 1;
+
+  const getTransitionStyle = (baseStyle: React.CSSProperties): React.CSSProperties => {
+    if (!isTransitioning || activeTransType === 'none') return baseStyle;
+
+    const res: React.CSSProperties = { ...baseStyle };
+
+    switch (activeTransType) {
+      case 'crossfade':
+        res.opacity = transitionProgress;
+        break;
+      case 'wipe-left':
+        res.clipPath = `polygon(${100 - transitionProgress * 100}% 0, 100% 0, 100% 100%, ${100 - transitionProgress * 100}% 100%)`;
+        break;
+      case 'wipe-right':
+        res.clipPath = `polygon(0 0, ${transitionProgress * 100}% 0, ${transitionProgress * 100}% 100%, 0 100%)`;
+        break;
+      case 'iris-wipe':
+        res.clipPath = `circle(${transitionProgress * 100}% at 50% 50%)`;
+        break;
+      case 'diagonal-slash':
+        res.clipPath = `polygon(${Math.max(0, 100 - transitionProgress * 120)}% 0, 100% 0, 100% 100%, ${Math.max(0, 60 - transitionProgress * 120)}% 100%)`;
+        break;
+      case 'slide-up':
+        res.transform = `translateY(${(1 - transitionProgress) * 32}px)`;
+        res.opacity = transitionProgress;
+        break;
+      case 'push-left':
+        res.transform = `translateX(${(1 - transitionProgress) * 40}px)`;
+        res.opacity = transitionProgress;
+        break;
+      case 'zoom-punch':
+        res.transform = `scale(${1 + (1 - transitionProgress) * 0.35})`;
+        res.opacity = Math.min(1, transitionProgress * 1.4);
+        break;
+      case 'glitch-dissolve':
+        if (transitionProgress < 0.7) {
+          const jitterX = (Math.sin(currentTime * 50) * 4).toFixed(1);
+          const jitterY = (Math.cos(currentTime * 50) * 2).toFixed(1);
+          res.transform = `translate(${jitterX}px, ${jitterY}px) skewX(${jitterX}deg)`;
+          res.filter = `drop-shadow(-2px 0 #ff0055) drop-shadow(2px 0 #00f2fe)`;
+        }
+        res.opacity = transitionProgress;
+        break;
+      default:
+        break;
+    }
+
+    return res;
+  };
+
   useEffect(() => {
     const checkApi = async () => {
       try {
@@ -519,6 +576,8 @@ export const Dashboard: React.FC = () => {
               onToggleOpen={() => setIsDrawerOpen(prev => !prev)}
               activeTab={activeDrawerTab}
               onTabChange={setActiveDrawerTab}
+              clips={clips}
+              onClipsChange={handleClipsChange}
             />
 
             {/* Maximized Preview Stage Monitor */}
@@ -700,6 +759,29 @@ export const Dashboard: React.FC = () => {
                   </div>
                 )}
 
+                {/* Layer 2c: Full-Frame Transition Flash, Dip & Leak Overlays */}
+                {isTransitioning && activeTransType === 'dip-black' && (
+                  <div 
+                    className="compositor-layer layer-trans-dip-black" 
+                    style={{ opacity: Math.max(0, 1 - transitionProgress * 2) }} 
+                  />
+                )}
+                {isTransitioning && activeTransType === 'flash-white' && (
+                  <div 
+                    className="compositor-layer layer-trans-flash-white" 
+                    style={{ opacity: Math.max(0, 1 - transitionProgress * 2.2) }} 
+                  />
+                )}
+                {isTransitioning && activeTransType === 'light-leak' && (
+                  <div 
+                    className="compositor-layer layer-trans-light-leak" 
+                    style={{ 
+                      opacity: Math.max(0, 1 - transitionProgress * 1.6),
+                      transform: `translateX(${(transitionProgress - 0.5) * 50}%)`
+                    }} 
+                  />
+                )}
+
                 {/* Layer 3: Branding / Logo */}
                 {theme.logo_path && (
                   <div className="compositor-layer layer-logo" style={{ textAlign: theme.logo_h_align }}>
@@ -727,10 +809,14 @@ export const Dashboard: React.FC = () => {
                           const isCurrent = line.index === activeIndex;
                           const gradIdx = Math.abs(line.index - activeIndex) - 1;
                           const opacity = isCurrent ? 1 : (theme.inactive_text_opacity_gradient[gradIdx] ?? 0.1);
+                          const lineStyles = getLineStyles(isCurrent, theme);
                           
                           return (
                             <div key={line.id} className="lyric-line-wrapper" style={{ top: `${line.y}px`, opacity }}>
-                              <div className="lyric-line-text" style={getLineStyles(isCurrent, theme)}>
+                              <div 
+                                className="lyric-line-text" 
+                                style={isCurrent ? getTransitionStyle(lineStyles) : lineStyles}
+                              >
                                 {renderLineText(line, isCurrent, theme, currentTime, clips[activeIndex])}
                               </div>
                             </div>
@@ -743,10 +829,10 @@ export const Dashboard: React.FC = () => {
                           <div 
                             key={clips[activeIndex].id} 
                             className="animate-current-line"
-                            style={{
+                            style={getTransitionStyle({
                               ...getLineStyles(true, theme),
                               animationDuration: `${0.5 / theme.animation_speed}s`
-                            }}
+                            })}
                           >
                             {renderLineText(clips[activeIndex], true, theme, currentTime, clips[activeIndex])}
                           </div>
@@ -816,6 +902,11 @@ export const Dashboard: React.FC = () => {
                   onToggleAudioMuted={() => setIsAudioMuted(m => !m)}
                   markers={markers}
                   onMarkersChange={setMarkers}
+                  activeTransition={theme.active_transition}
+                  onOpenTransitionsTab={() => {
+                    setActiveDrawerTab('transitions');
+                    if (!isDrawerOpen) setIsDrawerOpen(true);
+                  }}
                 />
              </div>
           </div>

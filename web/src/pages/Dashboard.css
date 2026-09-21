@@ -637,6 +637,33 @@
 }
 
 
+/* Layer 2c: Full-Frame Transition Flash & Dip Overlays */
+.layer-trans-dip-black {
+  z-index: 5;
+  background-color: #000000;
+  pointer-events: none;
+}
+
+.layer-trans-flash-white {
+  z-index: 5;
+  background-color: #ffffff;
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+.layer-trans-light-leak {
+  z-index: 5;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 220, 100, 0.45) 0%,
+    rgba(255, 120, 40, 0.35) 40%,
+    rgba(255, 0, 128, 0.2) 75%,
+    transparent 100%
+  );
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
 /* Layer 6: Mobile Safe Zones Overlay */
 .layer-safe-zones {
   z-index: 40;

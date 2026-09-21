@@ -36,7 +36,134 @@ export interface Theme {
   filter_intensity: number; // 0 to 100
   ambient_particles: AmbientParticleType;
   vignette_enabled: boolean;
+
+  // Transitions System (OpenShot Mask / Wipe & Dissolves)
+  active_transition: TransitionType;
+  transition_duration: number; // 0.2 to 2.0 seconds
 }
+
+export type TransitionType =
+  | 'none'
+  | 'crossfade'
+  | 'wipe-left'
+  | 'wipe-right'
+  | 'iris-wipe'
+  | 'diagonal-slash'
+  | 'dip-black'
+  | 'flash-white'
+  | 'glitch-dissolve'
+  | 'slide-up'
+  | 'push-left'
+  | 'zoom-punch'
+  | 'light-leak';
+
+export interface VideoTransition {
+  id: TransitionType;
+  name: string;
+  category: 'dissolve' | 'wipe' | 'motion' | 'light';
+  tag: string;
+  description: string;
+  previewClass: string;
+}
+
+export const TRANSITIONS_CATALOG: VideoTransition[] = [
+  {
+    id: 'crossfade',
+    name: 'Standard Crossfade',
+    category: 'dissolve',
+    tag: 'DISSOLVE',
+    description: 'Smooth alpha opacity blend between clips and lyric lines',
+    previewClass: 'preview-crossfade'
+  },
+  {
+    id: 'dip-black',
+    name: 'Dip to Black',
+    category: 'dissolve',
+    tag: 'CLASSIC',
+    description: 'Fades down to pure black, then lifts smoothly into the next line',
+    previewClass: 'preview-dip-black'
+  },
+  {
+    id: 'flash-white',
+    name: 'Flash to White',
+    category: 'dissolve',
+    tag: 'IMPACT',
+    description: 'High-energy white flash burst for powerful beat drops and hooks',
+    previewClass: 'preview-flash-white'
+  },
+  {
+    id: 'glitch-dissolve',
+    name: 'Digital Glitch Dissolve',
+    category: 'dissolve',
+    tag: 'CYBER',
+    description: 'RGB chromatic shift and horizontal scanline pixel tearing',
+    previewClass: 'preview-glitch-dissolve'
+  },
+  {
+    id: 'wipe-left',
+    name: 'Linear Wipe Left',
+    category: 'wipe',
+    tag: 'WIPE',
+    description: 'Clean linear boundary sweep cutting from right to left',
+    previewClass: 'preview-wipe-left'
+  },
+  {
+    id: 'wipe-right',
+    name: 'Linear Wipe Right',
+    category: 'wipe',
+    tag: 'WIPE',
+    description: 'Broadcast style horizontal wipe from left to right',
+    previewClass: 'preview-wipe-right'
+  },
+  {
+    id: 'iris-wipe',
+    name: 'Radial Iris / Circle',
+    category: 'wipe',
+    tag: 'MASK',
+    description: 'Expanding circular aperture mask revealing the next line',
+    previewClass: 'preview-iris-wipe'
+  },
+  {
+    id: 'diagonal-slash',
+    name: 'Diagonal Slash Wipe',
+    category: 'wipe',
+    tag: 'ANGULAR',
+    description: 'Dynamic 45-degree angular slice across the screen',
+    previewClass: 'preview-diagonal-slash'
+  },
+  {
+    id: 'slide-up',
+    name: 'Vertical Slide Up',
+    category: 'motion',
+    tag: 'PUSH',
+    description: 'Smooth vertical momentum slide elevating into frame',
+    previewClass: 'preview-slide-up'
+  },
+  {
+    id: 'push-left',
+    name: 'Horizontal Push',
+    category: 'motion',
+    tag: 'PUSH',
+    description: 'Incoming clip actively shoves previous content offscreen',
+    previewClass: 'preview-push-left'
+  },
+  {
+    id: 'zoom-punch',
+    name: 'Zoom Punch / Scale',
+    category: 'motion',
+    tag: 'KINETIC',
+    description: 'Dramatic camera focal zoom in with rapid settle',
+    previewClass: 'preview-zoom-punch'
+  },
+  {
+    id: 'light-leak',
+    name: 'Prism Light Leak Flash',
+    category: 'light',
+    tag: 'ORGANIC',
+    description: 'Warm 35mm projector light flare cutting through the cut',
+    previewClass: 'preview-light-leak'
+  }
+];
 
 export type VideoFilterType = 
   | 'none'
@@ -73,6 +200,8 @@ export interface LyricClip {
   start_time: number;
   end_time: number;
   text: string;
+  transition?: TransitionType;
+  transition_duration?: number;
 }
 
 export interface Marker {
@@ -120,6 +249,10 @@ export const DEFAULTS: Theme = {
   filter_intensity: 80,
   ambient_particles: "none",
   vignette_enabled: false,
+
+  // Transitions System
+  active_transition: "crossfade",
+  transition_duration: 0.4,
 };
 
 export interface ThemePreset {

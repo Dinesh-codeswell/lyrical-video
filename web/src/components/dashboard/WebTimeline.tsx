@@ -4,10 +4,10 @@ import WaveSurfer from 'wavesurfer.js';
 import { 
   Play, Pause, SkipBack, SkipForward, ChevronLeft, ChevronRight, 
   Plus, Video, Scissors, Volume2, VolumeX, Eye, EyeOff, Lock, Unlock, 
-  Magnet, Maximize2, Flag, Copy, Trash2, Edit3, Type
+  Magnet, Maximize2, Flag, Copy, Trash2, Edit3, Type, Layers
 } from 'lucide-react';
 import { Button } from '../ui/Button';
-import type { LyricClip, Marker } from '../../types';
+import type { LyricClip, Marker, TransitionType } from '../../types';
 import './WebTimeline.css';
 
 interface WebTimelineProps {
@@ -25,6 +25,8 @@ interface WebTimelineProps {
   onToggleAudioMuted?: () => void;
   markers?: Marker[];
   onMarkersChange?: (markers: Marker[]) => void;
+  activeTransition?: TransitionType;
+  onOpenTransitionsTab?: () => void;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -255,7 +257,9 @@ export const WebTimeline: React.FC<WebTimelineProps> = ({
   isAudioMuted = false,
   onToggleAudioMuted,
   markers = [],
-  onMarkersChange
+  onMarkersChange,
+  activeTransition,
+  onOpenTransitionsTab
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -1206,68 +1210,95 @@ export const WebTimeline: React.FC<WebTimelineProps> = ({
                   }
                 }}
               >
-                {clips.map((clip) => {
+                {clips.map((clip, idx) => {
                   const clipDuration = clip.end_time - clip.start_time;
                   const isSelected = selectedClipId === clip.id;
                   const isCurrent = currentTime >= clip.start_time && currentTime < clip.end_time;
+                  const nextClip = clips[idx + 1];
+                  const hasAdjacentNext = nextClip && (nextClip.start_time - clip.end_time) < 2.0;
 
                   return (
-                    <div 
-                      key={clip.id}
-                      className={`lyric-clip ${isSelected ? 'selected' : ''} ${isCurrent ? 'active-playing' : ''}`}
-                      style={{ 
-                        left: `${clip.start_time * zoom}px`, 
-                        width: `${Math.max(16, clipDuration * zoom)}px` 
-                      }}
-                      onMouseDown={(e) => startDragging(e, clip)}
-                      onClick={(e) => handleClipRazorClick(e, clip)}
-                      onDoubleClick={(e) => { 
-                        e.stopPropagation(); 
-                        setEditingClipId(clip.id); 
-                      }}
-                    >
-                      {/* Left Trim Handle */}
-                      {!lockedTracks.lyrics && (
-                        <div 
-                          className="resize-handle left" 
-                          onMouseDown={(e) => startResizing(e, clip, 'left')}
-                          title="Trim Left Edge"
-                        >
-                          <div className="handle-notch" />
-                        </div>
-                      )}
+                    <React.Fragment key={clip.id}>
+                      <div 
+                        className={`lyric-clip ${isSelected ? 'selected' : ''} ${isCurrent ? 'active-playing' : ''}`}
+                        style={{ 
+                          left: `${clip.start_time * zoom}px`, 
+                          width: `${Math.max(16, clipDuration * zoom)}px` 
+                        }}
+                        onMouseDown={(e) => startDragging(e, clip)}
+                        onClick={(e) => handleClipRazorClick(e, clip)}
+                        onDoubleClick={(e) => { 
+                          e.stopPropagation(); 
+                          setEditingClipId(clip.id); 
+                        }}
+                      >
+                        {/* Left Trim Handle */}
+                        {!lockedTracks.lyrics && (
+                          <div 
+                            className="resize-handle left" 
+                            onMouseDown={(e) => startResizing(e, clip, 'left')}
+                            title="Trim Left Edge"
+                          >
+                            <div className="handle-notch" />
+                          </div>
+                        )}
 
-                      {/* Clip Body */}
-                      <div className="clip-content">
-                        <div className="clip-meta-tag">
-                          <span className="clip-duration-tag">{clipDuration.toFixed(2)}s</span>
+                        {/* Clip Body */}
+                        <div className="clip-content">
+                          <div className="clip-meta-tag">
+                            <span className="clip-duration-tag">{clipDuration.toFixed(2)}s</span>
+                            {clip.transition && clip.transition !== 'none' && (
+                              <span className="clip-transition-pill" title={`Transition: ${clip.transition}`}>
+                                ⚡ {clip.transition}
+                              </span>
+                            )}
+                          </div>
+                          <span className="clip-text">{clip.text || '...'}</span>
                         </div>
-                        <span className="clip-text">{clip.text || '...'}</span>
+
+                        {/* Quick Edit Pencil */}
+                        <button 
+                          className="clip-quick-edit-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingClipId(clip.id);
+                          }}
+                          title="Edit Text"
+                        >
+                          <Edit3 size={10} />
+                        </button>
+
+                        {/* Right Trim Handle */}
+                        {!lockedTracks.lyrics && (
+                          <div 
+                            className="resize-handle right" 
+                            onMouseDown={(e) => startResizing(e, clip, 'right')}
+                            title="Trim Right Edge"
+                          >
+                            <div className="handle-notch" />
+                          </div>
+                        )}
                       </div>
 
-                      {/* Quick Edit Pencil */}
-                      <button 
-                        className="clip-quick-edit-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingClipId(clip.id);
-                        }}
-                        title="Edit Text"
-                      >
-                        <Edit3 size={10} />
-                      </button>
-
-                      {/* Right Trim Handle */}
-                      {!lockedTracks.lyrics && (
-                        <div 
-                          className="resize-handle right" 
-                          onMouseDown={(e) => startResizing(e, clip, 'right')}
-                          title="Trim Right Edge"
+                      {/* Inter-Clip Transition Node */}
+                      {hasAdjacentNext && (
+                        <div
+                          className="clip-transition-node"
+                          style={{
+                            left: `${clip.end_time * zoom}px`
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onOpenTransitionsTab) onOpenTransitionsTab();
+                          }}
+                          title={`Transition: ${(clip.transition || activeTransition || 'crossfade').toUpperCase()} (Click to open Transitions panel)`}
                         >
-                          <div className="handle-notch" />
+                          <div className="transition-node-bowtie">
+                            <Layers size={9} />
+                          </div>
                         </div>
                       )}
-                    </div>
+                    </React.Fragment>
                   );
                 })}
               </div>
