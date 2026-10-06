@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import type { Theme, LyricClip } from '../../types';
 import { THEME_PRESETS, VISUAL_EFFECTS, TRANSITIONS_CATALOG } from '../../types';
 import { 
@@ -153,7 +153,8 @@ const LyricsFinderTab: React.FC<{
   };
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   void songPaths;
-  void clips;    void songPaths;
+  void clips;
+  void songPaths;
 
   const hasSelectedSong = Boolean(selectedSong);
   const canApply = hasSelectedSong && state.lyrics && !state.loading;
