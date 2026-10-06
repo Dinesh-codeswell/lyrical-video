@@ -9,10 +9,15 @@ import type { StudioTab } from '../components/dashboard/StudioDrawer';
 import { WebTimeline } from '../components/dashboard/WebTimeline';
 import { DEFAULTS, VISUAL_EFFECTS } from '../types';
 import type { Theme, LyricClip, Marker } from '../types';
-import './Dashboard.css';
-
-const PRODUCTION_ERROR = 'Synchronizing with production services... This may take a moment if the server is waking up.';
+import './Dashboard.css';const PRODUCTION_ERROR = 'Synchronizing with production services... This may take a moment if the server is waking up.';
 const DEVELOPMENT_ERROR = 'Backend server unreachable. Please start the API using .\\venv\\Scripts\\python.exe -m src.api.main';
+
+const BACKGROUND_IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.bmp', '.webp']);
+
+function isBackgroundImage(path: string) {
+  const ext = path.slice(((path.lastIndexOf('.') - 1) >>> 0) + 1).toLowerCase();
+  return BACKGROUND_IMAGE_EXTS.has(ext);
+}
 
 export const Dashboard: React.FC = () => {
   const [selectedSong, setSelectedSong] = useState<string | null>(null);
@@ -46,6 +51,37 @@ export const Dashboard: React.FC = () => {
 
   const bgVideoRef = useRef<HTMLVideoElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
+
+  const BackgroundLayer: React.FC<{ src: string; filterCSS?: string }> = ({ src, filterCSS }) => {
+    if (isBackgroundImage(src)) {
+      return (
+        <img
+          src={src}
+          alt="Background"
+          className="compositor-layer layer-bg"
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            filter: filterCSS,
+          }}
+          decoding="async"
+        />
+      );
+    }
+
+    return (
+      <video
+        ref={bgVideoRef}
+        src={src}
+        loop
+        muted
+        playsInline
+        className="compositor-layer layer-bg"
+        style={filterCSS ? { filter: filterCSS } : undefined}
+      />
+    );
+  };
 
   // Base canvas dimensions for the current aspect ratio
   const baseDims = useMemo(() => {
@@ -594,7 +630,7 @@ export const Dashboard: React.FC = () => {
         const pathsResp = await fetch(`/api/songs/${selectedSong}`);
         const paths = await pathsResp.json();
         setSongPaths(paths);
-        showToast('Background video uploaded successfully');
+        showToast('Background uploaded successfully');
       }
     } catch {
       console.error('Failed to update background');
@@ -707,6 +743,7 @@ export const Dashboard: React.FC = () => {
               onTabChange={setActiveDrawerTab}
               clips={clips}
               onClipsChange={handleClipsChange}
+              songPaths={songPaths}
             />
 
             {/* Maximized Preview Stage Monitor */}
@@ -839,16 +876,11 @@ export const Dashboard: React.FC = () => {
                   aspectRatio: theme.aspect_ratio.replace(':', '/'),
                 }}
               >
-                {/* Layer 1: Background Video */}
+                {/* Layer 1: Background (video or static image) */}
                 {songPaths?.background && isVideoVisible && (
-                  <video 
-                    ref={bgVideoRef}
+                  <BackgroundLayer
                     src={`/api/download_raw?path=${songPaths.background}`}
-                    loop 
-                    muted 
-                    playsInline
-                    className="compositor-layer layer-bg"
-                    style={activeFilterCSS ? { filter: activeFilterCSS } : undefined}
+                    filterCSS={activeFilterCSS}
                   />
                 )}
 

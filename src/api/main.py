@@ -15,11 +15,13 @@ from src.core.song_resolver import (
     INPUT_LYRICS_DIR,
     INPUT_BACKGROUNDS_DIR,
     THEMES_DIR,
+    BACKGROUND_EXTENSIONS,
 )
 from src.core.video_generator import generate_video
 from src.core.theme_loader import load_theme, Theme, THEME_PRESETS
 from src.core.lyrics_parser import parse_lrc_string, parse_srt_string
 from src.core.ai_transcriber import generate_ai_lyrics
+from src.core.lyrics_finder import find_lyrics, suggest, LyricsFinderError
 
 app = FastAPI(title="Lyric Video Generator API")
 
@@ -58,14 +60,45 @@ async def get_songs():
 
 @app.get("/api/backgrounds")
 async def get_backgrounds():
-    """List all available background video files."""
-    extensions = [".mp4", ".mov", ".avi", ".mkv", ".webm"]
+    """List all available background files (video and static images)."""
     bg_files = []
     if INPUT_BACKGROUNDS_DIR.exists():
         for f in INPUT_BACKGROUNDS_DIR.iterdir():
-            if f.suffix.lower() in extensions:
+            if f.suffix.lower() in BACKGROUND_EXTENSIONS:
                 bg_files.append(f.name)
     return bg_files
+
+
+@app.get("/api/lyrics/suggest")
+async def lyrics_suggest(term: str):
+    """Search suggestions for artist/song pairs (powered by api.lyrics.ovh / Deezer)."""
+    if not term or not term.strip():
+        return {"suggestions": []}
+    try:
+        results = suggest(term.strip())
+    except Exception as exc:  # noqa: BLE001 — keep the endpoint resilient
+        print(f"[lyrics/suggest] error for '{term}': {exc}")
+        results = []
+    return {"suggestions": results}
+
+
+@app.get("/api/lyrics/finder")
+async def lyrics_finder(artist: str, title: str):
+    """Fetch full lyrics for a song from api.lyrics.ovh."""
+    if not artist or not artist.strip():
+        raise HTTPException(status_code=400, detail="artist query parameter is required")
+    if not title or not title.strip():
+        raise HTTPException(status_code=400, detail="title query parameter is required")
+    try:
+        lyrics = find_lyrics(artist.strip(), title.strip())
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except LyricsFinderError:
+        raise HTTPException(status_code=404, detail="No lyrics found")
+    except Exception as exc:  # noqa: BLE001
+        print(f"[lyrics/finder] error for '{artist} - {title}': {exc}")
+        raise HTTPException(status_code=502, detail="Lyrics service unavailable")
+    return {"lyrics": lyrics}
 
 @app.get("/api/presets")
 async def get_presets():
@@ -91,7 +124,7 @@ async def delete_song(slug: str):
         targets = [
             (INPUT_AUDIO_DIR, [".mp3", ".wav", ".m4a", ".flac", ".ogg"]),
             (INPUT_LYRICS_DIR, [".json", ".lrc", ".srt", ".vtt"]),
-            (INPUT_BACKGROUNDS_DIR, [".mp4", ".mov", ".avi", ".mkv", ".webm"]),
+            (INPUT_BACKGROUNDS_DIR, BACKGROUND_EXTENSIONS),
             (THEMES_DIR, [".json"]),
             (PROJECT_ROOT / "output", [".mp4"])
         ]
@@ -160,7 +193,12 @@ async def upload_files(
             saved_paths["lyrics"] = str(path)
         
     if background:
-        ext = Path(background.filename).suffix
+        ext = Path(background.filename).suffix.lower()
+        if ext not in BACKGROUND_EXTENSIONS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported background format: {ext}. Supported: {', '.join(sorted(BACKGROUND_EXTENSIONS))}",
+            )
         path = INPUT_BACKGROUNDS_DIR / f"{slug}{ext}"
         with path.open("wb") as buffer:
             shutil.copyfileobj(background.file, buffer)
@@ -170,7 +208,7 @@ async def upload_files(
         src_path = INPUT_BACKGROUNDS_DIR / background_preset
         if src_path.exists():
             dest_path = INPUT_BACKGROUNDS_DIR / f"{slug}{src_path.suffix}"
-            if src_path != dest_path: # Avoid copying to self
+            if src_path != dest_path:  # Avoid copying to self
                 shutil.copy2(src_path, dest_path)
             saved_paths["background"] = str(dest_path)
         

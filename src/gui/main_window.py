@@ -331,9 +331,11 @@ class MainWindow(QMainWindow):
             return
 
         slug = dlg.result_slug
-        self._song_selector.scan()
+        self._song_selector.scan(select_slug=slug)
 
-        # Auto-load if audio is already present
+        # Auto-load only if audio is already present for this slug.
+        # Creating lyrics from text does not add audio, so the song may be
+        # incomplete until the user imports an audio file separately.
         songs = {s.name: s for s in scan_songs()}
         info = songs.get(slug)
         if info and info.is_loadable:
@@ -341,6 +343,15 @@ class MainWindow(QMainWindow):
             self._song_selector._loaded_name = slug
             self._song_selector._loaded_label.setText(f"Loaded: {slug}")
             self._on_song_loaded({k: str(v) if v else None for k, v in paths.items()})
+        else:
+            QMessageBox.information(
+                self,
+                "Lyrics Created",
+                f"Lyrics saved to input/lyrics/{slug}.json.\n\n"
+                "To render a video, add an audio file next:\n"
+                "  \u2022 Use File \u2192 Import Song to add audio & background, or\n"
+                f"  \u2022 Place {slug}.mp3 in input/audio/ and click Refresh.",
+            )
 
     def _on_open_theme(self):
         path, _ = QFileDialog.getOpenFileName(

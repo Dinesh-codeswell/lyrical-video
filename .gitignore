@@ -94,3 +94,6 @@ themes/*.json
 
 # Local vendor/experiments
 libopenshot-develop/
+
+# Downloaded/open-source reference projects (not part of the app)
+lyrics.ovh-main/

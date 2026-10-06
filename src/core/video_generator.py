@@ -153,8 +153,41 @@ def _build_bg_frame_getter(
     height: int = _HEIGHT,
     theme: Theme | None = None,
 ) -> tuple[Callable[[float], Image.Image], Callable[[], None]]:
-    """Return a function that maps video time t → background PIL Image, and a cleanup callback."""
-    clip = VideoFileClip(str(background_path), audio=False)
+    """Return a function that maps video time t → background PIL Image, and a cleanup callback.
+
+    Video files are ping-pong looped; static images are rendered once and reused for
+    every frame (still subject to blur / active_filter theme attrs).
+    """
+    path = Path(background_path)
+    suffix = path.suffix.lower()
+    image_exts = (".jpg", ".jpeg", ".png", ".bmp", ".webp")
+
+    if suffix in image_exts:
+        # Static image background — load once, reuse for every frame.
+        base_img = Image.open(path).convert("RGBA")
+        fitted = _fit_to_frame(base_img, width=width, height=height)
+
+        def get_bg_frame(t: float) -> Image.Image:
+            img = fitted.copy()
+            if theme is not None:
+                if getattr(theme, "background_blur", 0) > 0:
+                    radius = min(int(theme.background_blur), 20)
+                    img = img.filter(ImageFilter.GaussianBlur(radius=radius))
+                active_filter = getattr(theme, "active_filter", "none")
+                if active_filter and active_filter != "none":
+                    img = _apply_visual_filter(img, active_filter, t)
+            return img
+
+        def cleanup() -> None:
+            try:
+                base_img.close()
+            except Exception:
+                pass
+
+        return get_bg_frame, cleanup
+
+    # Video background — ping-pong loop.
+    clip = VideoFileClip(str(path), audio=False)
     bg_dur = clip.duration
     cycle = 2.0 * bg_dur
     _eps = 1.0 / 60.0
@@ -213,7 +246,7 @@ def generate_video(
         theme_path: Path to theme JSON (None for default theme).
         fps: Frames per second (default 30).
         preview: If True, only generate the first 30 seconds.
-        background_path: Path to background video (None for solid color).
+        background_path: Path to background video or image (None for solid color).
         aspect_ratio: Video aspect ratio ('16:9', '9:16', '1:1', '4:5').
 
     Returns:

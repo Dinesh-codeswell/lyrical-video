@@ -139,7 +139,7 @@ Place your media in the corresponding `input/` folder:
 |---|---|---|
 | `input/audio/` | Song audio files | `.mp3`, `.wav`, `.flac`, `.m4a` |
 | `input/lyrics/` | Timed lyrics definitions | `.json` |
-| `input/backgrounds/` | Background videos or loops | `.mp4`, `.mov`, `.webm`, `.mkv` |
+| `input/backgrounds/` | Background video or static image (optional) | `.mp4`, `.mov`, `.webm`, `.mkv`, `.jpg`, `.png` |
 | `themes/` | Theme definitions | `.json` |
 | `output/` | Exported lyric videos | `.mp4` |
 

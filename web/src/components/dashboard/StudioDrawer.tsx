@@ -1,16 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import type { Theme, LyricClip } from '../../types';
 import { THEME_PRESETS, VISUAL_EFFECTS, TRANSITIONS_CATALOG } from '../../types';
 import { 
-  FolderPlus, Palette, Type, Wand2, Mic2, SlidersHorizontal, 
+  FolderPlus,  Palette, Type, Wand2, Mic2, SlidersHorizontal, 
   ChevronLeft, ChevronRight, X, Smartphone, Monitor, Square, 
   AlignLeft, AlignCenter, AlignRight, Check, Sparkles, Layers,
-  Sliders
+  Search, Sliders
 } from 'lucide-react';
 import { SongSelector } from './SongSelector';
 import './StudioDrawer.css';
 
-export type StudioTab = 'media' | 'presets' | 'transitions' | 'effects' | 'text' | 'motion' | 'karaoke' | 'canvas';
+export type StudioTab = 'media' | 'presets' | 'transitions' | 'effects' | 'lyrics' | 'text' | 'motion' | 'karaoke' | 'canvas';
 
 interface StudioDrawerProps {
   theme: Theme;
@@ -23,7 +23,231 @@ interface StudioDrawerProps {
   onTabChange?: (tab: StudioTab) => void;
   clips?: LyricClip[];
   onClipsChange?: (clips: LyricClip[], actionName?: string) => void;
+  songPaths?: any;
 }
+
+interface LyricsFinderState {
+  query: string;
+  suggestions: { artist: string; title: string }[];
+  selected: { artist: string; title: string } | null;
+  lyrics: string | null;
+  loading: boolean;
+  error: string | null;
+  copied: boolean;
+  applied: string | null;
+}
+
+const LyricsFinderTab: React.FC<{
+  selectedSong: string | null;
+  onSongSelect: (slug: string) => void;
+  clips?: LyricClip[];
+  onClipsChange?: (clips: LyricClip[], actionName?: string) => void;
+  songPaths?: any;
+}> = ({ selectedSong, clips, onClipsChange, songPaths }) => {
+  // NOTE: `clips` is accepted for interface consistency with other tabs; the
+  // current implementation replaces the entire clip list on apply.
+  void clips;
+  const [state, setState] = useState<LyricsFinderState>({
+    query: '',
+    suggestions: [],
+    selected: null,
+    lyrics: null,
+    loading: false,
+    error: null,
+    copied: false,
+    applied: null,
+  });
+
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const fetchSuggestions = async (term: string) => {
+    if (!term.trim()) {
+      setState((s) => ({ ...s, suggestions: [], selected: null }));
+      return;
+    }
+    setState((s) => ({ ...s, loading: true, error: null }));
+    try {
+      const resp = await fetch(`/api/lyrics/suggest?term=${encodeURIComponent(term)}`);
+      const data = await resp.json();
+      setState((s) => ({ ...s, suggestions: data.suggestions || [], loading: false }));
+    } catch (err) {
+      setState((s) => ({ ...s, suggestions: [], loading: false, error: 'Suggestions unavailable' }));
+    }
+  };
+
+  const handleQueryChange = (value: string) => {
+    setState((s) => ({ ...s, query: value, suggestions: [], selected: null, lyrics: null, error: null }));
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => fetchSuggestions(value), 250);
+  };
+
+  const selectSuggestion = (sug: { artist: string; title: string }) => {
+    setState((s) => ({
+      ...s,
+      selected: sug,
+      query: `${sug.artist} — ${sug.title}`,
+      suggestions: [],
+    }));
+  };
+
+  const fetchLyrics = async () => {
+    const s = state.selected;
+    if (!s) return;
+    setState((st) => ({ ...st, loading: true, error: null, lyrics: null }));
+    try {
+      const resp = await fetch(
+        `/api/lyrics/finder?artist=${encodeURIComponent(s.artist)}&title=${encodeURIComponent(s.title)}`
+      );
+      const data = await resp.json();
+      if (resp.ok && data.lyrics) {
+        setState((st) => ({ ...st, lyrics: data.lyrics, loading: false }));
+      } else {
+        setState((st) => ({ ...st, loading: false, error: data.error || 'No lyrics found' }));
+      }
+    } catch (err) {
+      setState((st) => ({ ...st, loading: false, error: 'Failed to fetch lyrics' }));
+    }
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    void s;
+  };
+
+  const copyLyrics = async () => {
+    if (!state.lyrics) return;
+    try {
+      await navigator.clipboard.writeText(state.lyrics);
+      setState((st) => ({ ...st, copied: true }));
+      setTimeout(() => setState((st) => ({ ...st, copied: false })), 2000);
+    } catch {
+      // Fallback: select text in the lyrics box is not trivial; ignore.
+    }
+  };
+
+  const applyToSong = () => {
+    if (!state.lyrics || !selectedSong || !onClipsChange) return;
+
+    // Derive title/artist from the loaded song metadata when available.
+    const songLabel = songPaths?.lyrics ? 'loaded song' : String(selectedSong ?? 'the current song');
+
+    // Parse the fetched lyrics into simple timed clips.
+    // Lines are separated by blank lines; each gets a start time and a 3.5s duration
+    // (mirrors the web frontend's plain-text spacing so the result is immediately usable).
+    const rawLines = state.lyrics.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    if (rawLines.length === 0) return;
+
+    const newClips: LyricClip[] = rawLines.map((text, i) => ({
+      id: `lf-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 7)}`,
+      start_time: Math.round(i * 3.5 * 10) / 10,
+      end_time: Math.round((i + 1) * 3.5 * 10) / 10,
+      text,
+    }));
+    onClipsChange(newClips, `Lyrics Finder: ${state.selected!.artist} — ${state.selected!.title}`);
+    setState((st) => ({ ...st, applied: `${rawLines.length} lines applied to “${songLabel}”` }));
+  };
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  void songPaths;
+  void clips;    void songPaths;
+
+  const hasSelectedSong = Boolean(selectedSong);
+  const canApply = hasSelectedSong && state.lyrics && !state.loading;
+
+  return (
+    <div className="drawer-section lyrics-tab-content">
+      <div className="section-instruction mb-2">
+        Search for a song and fetch its lyrics from the online lyrics database.
+      </div>
+
+      <div className="lyrics-finder-search">
+        <input
+          type="text"
+          value={state.query}
+          onChange={(e) => handleQueryChange(e.target.value)}
+          placeholder="Artist — Song (e.g. Pink Floyd — Wish You Were Here)"
+          className="pro-text-input"
+          autoComplete="off"
+        />
+        {state.loading && state.suggestions.length === 0 && (
+          <div className="lyrics-finder-status">Fetching suggestions…</div>
+        )}
+      </div>
+
+      {state.suggestions.length > 0 && (
+        <div className="lyrics-finder-suggestions">
+          {state.suggestions.slice(0, 12).map((sug, idx) => (
+            <button
+              key={idx}
+              type="button"
+              className={`lyrics-suggestion-item ${state.selected && state.selected.artist === sug.artist && state.selected.title === sug.title ? 'selected' : ''}`}
+              onClick={() => selectSuggestion(sug)}
+            >
+              <span className="lyrics-suggestion-artist">{sug.artist}</span>
+              <span className="lyrics-suggestion-sep">—</span>
+              <span className="lyrics-suggestion-title">{sug.title}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {state.selected && !state.lyrics && !state.loading && (
+        <button
+          type="button"
+          className="lyrics-finder-fetch-btn"
+          onClick={fetchLyrics}
+          disabled={state.loading}
+        >
+          Fetch Lyrics
+        </button>
+      )}
+
+      {state.error && (
+        <div className="lyrics-finder-error">
+          {state.error}
+        </div>
+      )}
+
+      {state.lyrics && (
+        <div className="lyrics-finder-result">
+          <div className="lyrics-finder-header">
+            <div className="lyrics-finder-title">
+              <span className="lyrics-result-artist">{state.selected!.artist}</span>
+              <span className="lyrics-result-sep">—</span>
+              <span className="lyrics-result-title">{state.selected!.title}</span>
+            </div>
+            <div className="lyrics-finder-actions">
+              <button type="button" className="lyrics-action-btn" onClick={copyLyrics}>
+                {state.copied ? 'Copied!' : 'Copy'}
+              </button>
+              <button
+                type="button"
+                className={`lyrics-action-btn ${canApply ? 'primary' : ''}`}
+                onClick={applyToSong}
+                disabled={!canApply}
+                title={hasSelectedSong ? 'Replace the current song’s lyrics with these' : 'Select a song first'}
+              >
+                {hasSelectedSong ? 'Use for Current Song' : 'No Song Loaded'}
+              </button>
+            </div>
+          </div>
+          <div className="lyrics-finder-text">
+            <pre>{state.lyrics}</pre>
+          </div>
+        </div>
+      )}
+
+      {state.applied && (
+        <div className="lyrics-finder-toast">
+          {state.applied}
+        </div>
+      )}
+
+      {!selectedSong && state.lyrics && (
+        <div className="lyrics-finder-hint">
+          Load a song (media tab) to apply fetched lyrics to it.
+        </div>
+      )}
+    </div>
+  );
+};
+
 
 export const StudioDrawer: React.FC<StudioDrawerProps> = ({
   theme,
@@ -35,7 +259,8 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
   activeTab: controlledTab,
   onTabChange,
   clips,
-  onClipsChange
+  onClipsChange,
+  songPaths: _songPaths
 }) => {
   const [internalTab, setInternalTab] = useState<StudioTab>('media');
   const [effectCategory, setEffectCategory] = useState<'all' | 'color' | 'texture' | 'retro'>('all');
@@ -114,6 +339,16 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
           >
             <Sparkles size={18} />
             <span className="rail-tab-label">Effects</span>
+          </button>
+
+          <button 
+            type="button"
+            className={`rail-tab-btn ${currentTab === 'lyrics' && isOpen ? 'active' : ''}`}
+            onClick={() => handleSelectTab('lyrics')}
+            title="Lyrics Finder — search & fetch lyrics online"
+          >
+            <Search size={18} />
+            <span className="rail-tab-label">Lyrics</span>
           </button>
 
           <button 
@@ -298,6 +533,16 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
                 })}
               </div>
             </div>
+          )}
+
+          {/* TAB: LYRICS FINDER */}
+          {currentTab === 'lyrics' && (
+            < LyricsFinderTab 
+              selectedSong={selectedSong}
+              onSongSelect={onSongSelect}
+              clips={clips}
+              onClipsChange={onClipsChange}
+            />
           )}
 
           {/* TAB: TRANSITIONS & WIPES */}

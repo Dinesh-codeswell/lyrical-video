@@ -14,6 +14,9 @@ THEMES_DIR = PROJECT_ROOT / "themes"
 
 AUDIO_EXTENSIONS = (".mp3", ".wav")
 LYRICS_EXTENSIONS = (".json", ".lrc", ".srt", ".vtt")
+BACKGROUND_VIDEO_EXTENSIONS = (".mp4", ".mov", ".avi", ".mkv", ".webm")
+BACKGROUND_IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".bmp", ".webp")
+BACKGROUND_EXTENSIONS = BACKGROUND_VIDEO_EXTENSIONS + BACKGROUND_IMAGE_EXTENSIONS
 
 
 def _find_lyrics(name: str) -> Path | None:
@@ -56,7 +59,7 @@ def scan_songs() -> list[SongInfo]:
             name=name,
             has_lyrics=_find_lyrics(name) is not None,
             has_audio=_find_audio(name) is not None,
-            has_background=(INPUT_BACKGROUNDS_DIR / f"{name}.mp4").exists(),
+            has_background=_find_background(name) is not None,
         ))
     return songs
 
@@ -112,9 +115,7 @@ def resolve_song(
     elif background_override:
         background_path = Path(background_override)
     else:
-        candidate = INPUT_BACKGROUNDS_DIR / f"{song_name}.mp4"
-        if candidate.exists():
-            background_path = candidate
+        background_path = _find_background(song_name)
 
     # Resolve theme
     theme_candidate = THEMES_DIR / f"{song_name}.json"
@@ -142,12 +143,7 @@ def get_song_files(song_name: str) -> dict[str, Path | None]:
     lyrics_path = _find_lyrics(song_name)
     audio_path = _find_audio(song_name)
 
-    background_path = None
-    for ext in (".mp4", ".mov", ".avi", ".mkv", ".webm"):
-        candidate = INPUT_BACKGROUNDS_DIR / f"{song_name}{ext}"
-        if candidate.exists():
-            background_path = candidate
-            break
+    background_path = _find_background(song_name)
 
     theme_candidate = THEMES_DIR / f"{song_name}.json"
     theme_path = theme_candidate if theme_candidate.exists() else None
@@ -158,4 +154,17 @@ def get_song_files(song_name: str) -> dict[str, Path | None]:
         "background": background_path,
         "theme": theme_path,
     }
+
+
+def _find_background(song_name: str) -> Path | None:
+    """Search for a background file (video or image) matching the song name.
+
+    Video extensions are preferred so that an existing video is not replaced by
+    an image of the same stem; if both exist the video is returned.
+    """
+    for ext in BACKGROUND_EXTENSIONS:
+        candidate = INPUT_BACKGROUNDS_DIR / f"{song_name}{ext}"
+        if candidate.exists():
+            return candidate
+    return None
 

@@ -21,6 +21,7 @@ from PyQt6.QtWidgets import (
 
 from src.core.song_resolver import (
     AUDIO_EXTENSIONS,
+    BACKGROUND_EXTENSIONS,
     INPUT_AUDIO_DIR,
     INPUT_BACKGROUNDS_DIR,
     INPUT_LYRICS_DIR,
@@ -111,8 +112,8 @@ class ImportSongDialog(QDialog):
         lyrics_row.addWidget(lyrics_create)
         layout.addLayout(lyrics_row)
 
-        # Background video
-        bg_lbl = QLabel("Background Video (optional):")
+        # Background (video or image)
+        bg_lbl = QLabel("Background (optional):")
         layout.addWidget(bg_lbl)
         bg_row = QHBoxLayout()
         self._bg_path = QLineEdit()
@@ -184,8 +185,9 @@ class ImportSongDialog(QDialog):
                 self._slug_edit.setText(dlg.result_slug)
 
     def _browse_background(self) -> None:
+        exts = " ".join(f"*{e}" for e in BACKGROUND_EXTENSIONS)
         path, _ = QFileDialog.getOpenFileName(
-            self, "Select Background Video", "", "Video Files (*.mp4)"
+            self, "Select Background File", "", f"Background Files ({exts})"
         )
         if path:
             self._bg_path.setText(path)
@@ -221,7 +223,7 @@ class ImportSongDialog(QDialog):
         audio_ext = Path(audio).suffix
         dest_audio = INPUT_AUDIO_DIR / f"{slug}{audio_ext}"
         dest_lyrics = INPUT_LYRICS_DIR / f"{slug}.json"
-        dest_bg = (INPUT_BACKGROUNDS_DIR / f"{slug}.mp4") if background else None
+        dest_bg = (INPUT_BACKGROUNDS_DIR / f"{slug}{Path(background).suffix}") if background else None
 
         existing = [str(p) for p in [dest_audio, dest_lyrics, dest_bg] if p and p.exists()]
         if existing:

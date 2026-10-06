@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Music, Upload, RefreshCw, FileJson, Video, Plus, X, Sparkles, Trash2, Settings2, Disc3, Key } from 'lucide-react';
+import { Music, Upload, RefreshCw, FileJson, Video, Image, Plus, X, Sparkles, Trash2, Settings2, Disc3, Key } from 'lucide-react';
 import { Button } from '../ui/Button';
 import './SongSelector.css';
 
@@ -19,6 +19,8 @@ export const SongSelector: React.FC<{ onSelect: (slug: string) => void }> = ({ o
   const [newArtist, setNewArtist] = useState('');
   const [newLyrics, setNewLyrics] = useState('');
   const [creating, setCreating] = useState(false);
+  const [newBgFile, setNewBgFile] = useState<File | null>(null);
+  const [newSelectedBg, setNewSelectedBg] = useState<string | null>(null);
 
   // Import form state
   const [songName, setSongName] = useState('');
@@ -189,7 +191,13 @@ function parseLrcOrText(text: string): { time: number; text: string }[] {
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
       formData.append('lyrics', blob, `${slug}.json`);
       formData.append('slug', slug);
-      
+
+      if (newBgFile) {
+        formData.append('background', newBgFile);
+      } else if (newSelectedBg) {
+        formData.append('background_preset', newSelectedBg);
+      }
+
       const resp = await fetch('/api/upload', {
         method: 'POST',
         body: formData,
@@ -200,6 +208,8 @@ function parseLrcOrText(text: string): { time: number; text: string }[] {
         setNewTitle('');
         setNewArtist('');
         setNewLyrics('');
+        setNewBgFile(null);
+        setNewSelectedBg(null);
         fetchSongs();
       } else {
         const error = await resp.json();
@@ -390,7 +400,7 @@ function parseLrcOrText(text: string): { time: number; text: string }[] {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                   <label style={{ margin: 0 }}>Lyrics (one per line or pasted .lrc)</label>
                   <span style={{ fontSize: '10px', background: 'rgba(0, 243, 255, 0.1)', color: 'var(--electric-blue)', padding: '2px 6px', borderRadius: '4px' }}>
-                    Auto-detects [mm:ss]
+                    Auto-detects [mm:ss] timestamps; plain text spaced 3.5s apart
                   </span>
                 </div>
                 <textarea 
@@ -401,6 +411,68 @@ function parseLrcOrText(text: string): { time: number; text: string }[] {
                   className="text-area"
                 />
               </div>
+
+              <div className="form-group separator">
+                <div className="divider-text">BACKGROUND (OPTIONAL)</div>
+              </div>
+
+              <div className="form-group">
+                <label>Background (Optional)</label>
+                <div className="bg-selector-grid">
+                  {availableBackgrounds.map((bg) => {
+                    const isImage = /\.(jpe?g|png|bmp|webp)$/i.test(bg);
+                    return (
+                      <div 
+                        key={bg} 
+                        className={`bg-option ${newSelectedBg === bg ? 'selected' : ''}`}
+                        onClick={() => {
+                          setNewSelectedBg(bg);
+                          setNewBgFile(null);
+                        }}
+                        title={bg}
+                      >
+                        <div className="bg-preview-box">
+                          {isImage ? <Image size={20} /> : <Video size={20} />}
+                        </div>
+                        <span className="bg-name">{bg}</span>
+                      </div>
+                    );
+                  })}
+                  
+                  <div 
+                    className={`bg-option custom-add ${newBgFile ? 'selected' : ''}`}
+                    onClick={() => document.getElementById('new-custom-bg-input')?.click()}
+                  >
+                    <div className="bg-preview-box">
+                      {newBgFile ? <Video size={20} className="ready" /> : <Plus size={24} />}
+                    </div>
+                    <span className="bg-name">{newBgFile ? newBgFile.name : 'Upload New'}</span>
+                    <input 
+                      id="new-custom-bg-input"
+                      type="file" 
+                      accept=".mp4,.mov,.avi,.mkv,.webm,.jpg,.jpeg,.png,.bmp,.webp" 
+                      style={{ display: 'none' }}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        if (file) {
+                          setNewBgFile(file);
+                          setNewSelectedBg(null);
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="form-group" style={{ background: 'rgba(0,243,255,0.04)', borderRadius: '6px', padding: '8px 10px' }}>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center', fontSize: '12px' }}>
+                  <Sparkles size={12} style={{ color: 'var(--electric-blue)', flexShrink: 0 }} />
+                  <span style={{ color: 'var(--soft-stone)' }}>
+                    This creates the lyrics file only. To make the song playable, add an audio file next via the Import dialog, or place an audio file named <strong style={{ fontFamily: 'var(--font-mono)', color: 'var(--silver-whisper)' }}>{newTitle.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}.mp3</strong> in <strong style={{ fontFamily: 'var(--font-mono)', color: 'var(--silver-whisper)' }}>input/audio/</strong>.
+                  </span>
+                </div>
+              </div>
+
               <div className="modal-footer">
                 <Button type="button" variant="ghost" onClick={() => setShowNew(false)}>Cancel</Button>
                 <Button type="submit" variant="primary" disabled={creating}>
@@ -475,24 +547,27 @@ function parseLrcOrText(text: string): { time: number; text: string }[] {
                 />
               </div>
               <div className="form-group">
-                <label>Background Video (Optional)</label>
+                <label>Background (Optional)</label>
                 <div className="bg-selector-grid">
-                  {availableBackgrounds.map((bg) => (
-                    <div 
-                      key={bg} 
-                      className={`bg-option ${selectedBackground === bg ? 'selected' : ''}`}
-                      onClick={() => {
-                        setSelectedBackground(bg);
-                        setBgFile(null);
-                      }}
-                      title={bg}
-                    >
-                      <div className="bg-preview-box">
-                        <Video size={20} />
+                  {availableBackgrounds.map((bg) => {
+                    const isImage = /\.(jpe?g|png|bmp|webp)$/i.test(bg);
+                    return (
+                      <div 
+                        key={bg} 
+                        className={`bg-option ${selectedBackground === bg ? 'selected' : ''}`}
+                        onClick={() => {
+                          setSelectedBackground(bg);
+                          setBgFile(null);
+                        }}
+                        title={bg}
+                      >
+                        <div className="bg-preview-box">
+                          {isImage ? <Image size={20} /> : <Video size={20} />}
+                        </div>
+                        <span className="bg-name">{bg}</span>
                       </div>
-                      <span className="bg-name">{bg}</span>
-                    </div>
-                  ))}
+                    );
+                  })}
                   
                   <div 
                     className={`bg-option custom-add ${bgFile ? 'selected' : ''}`}
@@ -505,7 +580,7 @@ function parseLrcOrText(text: string): { time: number; text: string }[] {
                     <input 
                       id="custom-bg-input"
                       type="file" 
-                      accept="video/*" 
+                      accept=".mp4,.mov,.avi,.mkv,.webm,.jpg,.jpeg,.png,.bmp,.webp" 
                       style={{ display: 'none' }}
                       onChange={(e) => {
                         const file = e.target.files?.[0] || null;

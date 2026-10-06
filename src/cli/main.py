@@ -12,7 +12,7 @@ from src.core.video_generator import generate_video
 @click.option("--song", default=None, help="Song name to auto-match from input/ folders.")
 @click.option("--lyrics", default=None, type=click.Path(exists=True), help="Path to lyrics JSON file.")
 @click.option("--audio", default=None, type=click.Path(exists=True), help="Path to audio file.")
-@click.option("--background", default=None, type=click.Path(exists=True), help="Path to background video.")
+@click.option("--background", default=None, type=click.Path(exists=True), help="Path to background video or image.")
 @click.option("--no-background", is_flag=True, default=False, help="Force solid color background.")
 @click.option("--theme", type=click.Path(exists=True), default=None, help="Path to theme JSON (default: themes/<song-name>.json if it exists).")
 @click.option("--output", type=click.Path(), default=None, help="Output path (default: output/<title>.mp4).")
