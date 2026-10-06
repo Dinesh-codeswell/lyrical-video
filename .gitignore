@@ -97,3 +97,10 @@ libopenshot-develop/
 
 # Downloaded/open-source reference projects (not part of the app)
 lyrics.ovh-main/
+lyrics/
+
+# Test output files
+test_*.txt
+
+# Temporary files
+tmp/

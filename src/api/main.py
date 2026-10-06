@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, Form, BackgroundTasks, HTTPException, Request
+from fastapi import FastAPI, UploadFile, File, Form, BackgroundTasks, HTTPException, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pathlib import Path
@@ -21,7 +21,15 @@ from src.core.video_generator import generate_video
 from src.core.theme_loader import load_theme, Theme, THEME_PRESETS
 from src.core.lyrics_parser import parse_lrc_string, parse_srt_string
 from src.core.ai_transcriber import generate_ai_lyrics
-from src.core.lyrics_finder import find_lyrics, suggest, LyricsFinderError
+from src.core.lyrics_finder import find_lyrics, LyricsFinderError
+
+# Optional Spotify service import
+try:
+    from src.core.spotify_service import SpotifyService, SpotifyDownloadError, SpotifyServiceUnavailable
+    SPOTIFY_AVAILABLE = True
+except ImportError as e:
+    SPOTIFY_AVAILABLE = False
+    print(f"Spotify service not available: {e}")
 
 app = FastAPI(title="Lyric Video Generator API")
 
@@ -70,16 +78,86 @@ async def get_backgrounds():
 
 
 @app.get("/api/lyrics/suggest")
-async def lyrics_suggest(term: str):
-    """Search suggestions for artist/song pairs (powered by api.lyrics.ovh / Deezer)."""
+async def lyrics_suggest(term: str = Query(..., description="Search term for artist/song suggestions")):
+    """Search suggestions for artist/song pairs (powered by NetEase Music API)."""
     if not term or not term.strip():
         return {"suggestions": []}
+    # Note: The suggest function was removed from lyrics_finder.py
+    # This endpoint now returns empty suggestions - can be enhanced later
+    return {"suggestions": []}
+
+
+@app.post("/api/lyrics/search")
+async def lyrics_search(request: Request):
+    """
+    Search for lyrics by song title/artist and return timestamped JSON.
+    
+    This endpoint enables the dashboard to auto-fill lyrics with timestamps.
+    It uses the NetEase Music API via lyrics_finder.py to fetch LRC lyrics,
+    parse timestamps, and return them in dashboard-ready format.
+    
+    Request body:
+        { "title": "Bohemian Rhapsody", "artist": "Queen" }
+        or
+        { "query": "Bohemian Rhapsody Queen" }
+    
+    Returns:
+        {
+            "success": true,
+            "title": "Bohemian Rhapsody",
+            "artist": "Queen",
+            "lyrics": [
+                { "time": 0.14, "text": "Is this the real life" },
+                { "time": 3.87, "text": "Is this just fantasy" },
+                ...
+                { "time": 342.95, "text": "" }
+            ],
+            "lyrics_count": 67
+        }
+    """
     try:
-        results = suggest(term.strip())
-    except Exception as exc:  # noqa: BLE001 — keep the endpoint resilient
-        print(f"[lyrics/suggest] error for '{term}': {exc}")
-        results = []
-    return {"suggestions": results}
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+    
+    title = body.get("title", "").strip()
+    artist = body.get("artist", "").strip()
+    query = body.get("query", "").strip()
+    
+    # Support query-style requests
+    if query and not title:
+        parts = query.rsplit(" ", 1)
+        if len(parts) == 2:
+            title = parts[0].strip()
+            artist = parts[1].strip()
+        else:
+            title = query
+    
+    if not title:
+        raise HTTPException(status_code=400, detail="Title is required")
+    
+    try:
+        from src.core.lyrics_finder import get_lyrics_as_json
+        
+        lyrics_data = get_lyrics_as_json(title, artist)
+        lyrics_count = len([l for l in lyrics_data["lyrics"] if l["text"]])
+        
+        return {
+            "success": True,
+            "title": lyrics_data["title"],
+            "artist": lyrics_data["artist"],
+            "lyrics": lyrics_data["lyrics"],
+            "lyrics_count": lyrics_count,
+            "duration_seconds": lyrics_data["lyrics"][-1]["time"] if lyrics_data["lyrics"] else 0
+        }
+    except Exception as exc:
+        print(f"[lyrics/search] error for '{title} by {artist}': {exc}")
+        from src.core.lyrics_finder import LyricsFinderError
+        if isinstance(exc, LyricsFinderError):
+            if "No lyrics found" in str(exc):
+                raise HTTPException(status_code=404, detail=str(exc))
+            raise HTTPException(status_code=502, detail=str(exc))
+        raise HTTPException(status_code=500, detail=f"Lyrics search failed: {str(exc)}")
 
 
 @app.get("/api/lyrics/finder")
@@ -301,6 +379,142 @@ async def download_raw(path: str):
     if not p.exists():
         raise HTTPException(status_code=404, detail="File not found")
     return FileResponse(p)
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# Spotify Integration Endpoints
+# ──────────────────────────────────────────────────────────────────────────
+
+@app.get("/api/spotify/status")
+async def spotify_status():
+    """Check if Spotify download service is available."""
+    if not SPOTIFY_AVAILABLE:
+        return {
+            "available": False,
+            "reason": "spotDL not installed",
+            "install_instruction": "uv pip install spotdl"
+        }
+
+    try:
+        service = SpotifyService(INPUT_AUDIO_DIR)
+        status = service.get_status()
+        return status
+    except Exception as e:
+        return {
+            "available": False,
+            "reason": str(e),
+        }
+
+
+@app.post("/api/spotify/search")
+async def spotify_search(request: Request):
+    """Search Spotify for songs matching a query."""
+    if not SPOTIFY_AVAILABLE:
+        raise HTTPException(
+            status_code=503,
+            detail="Spotify service not available. Install spotDL with: uv pip install spotdl"
+        )
+
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+
+    query = body.get("query", "").strip()
+    limit = body.get("limit", 10)
+
+    if not query:
+        raise HTTPException(status_code=400, detail="Query parameter is required")
+
+    try:
+        service = SpotifyService(INPUT_AUDIO_DIR)
+        results = service.search(query, limit=limit)
+        return {"results": [r.to_dict() for r in results]}
+    except SpotifyDownloadError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        print(f"[spotify/search] error for '{query}': {e}")
+        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+
+
+@app.post("/api/spotify/download")
+async def spotify_download(request: Request, background_tasks: BackgroundTasks):
+    """Download a song from Spotify."""
+    if not SPOTIFY_AVAILABLE:
+        raise HTTPException(
+            status_code=503,
+            detail="Spotify service not available. Install spotDL with: uv pip install spotdl"
+        )
+
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+
+    spotify_url = body.get("url", "").strip()
+    song_slug = body.get("slug", "").strip()
+
+    if not spotify_url:
+        raise HTTPException(status_code=400, detail="Spotify URL is required")
+
+    if not song_slug:
+        raise HTTPException(status_code=400, detail="Song slug is required")
+
+    try:
+        service = SpotifyService(INPUT_AUDIO_DIR)
+
+        # Run download in background to avoid blocking
+        job_id = str(uuid.uuid4())
+        jobs[job_id] = {
+            "status": "downloading",
+            "progress": 0,
+            "type": "spotify_download",
+            "slug": song_slug,
+        }
+
+        async def download_task():
+            try:
+                audio_path, metadata = await service.download(
+                    spotify_url,
+                    progress_callback=lambda progress: jobs[job_id].update(progress)
+                )
+
+                # Move to standard location
+                target_path = service.move_to_song_directory(audio_path, song_slug)
+
+                jobs[job_id].update({
+                    "status": "completed",
+                    "progress": 100,
+                    "audio_path": str(target_path),
+                    "metadata": metadata,
+                })
+            except Exception as e:
+                jobs[job_id].update({
+                    "status": "failed",
+                    "error": str(e),
+                })
+
+        background_tasks.add_task(download_task)
+        return {"job_id": job_id, "status": "started"}
+
+    except SpotifyDownloadError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        print(f"[spotify/download] error for '{spotify_url}': {e}")
+        raise HTTPException(status_code=500, detail=f"Download failed: {str(e)}")
+
+
+@app.get("/api/spotify/download-status/{job_id}")
+async def spotify_download_status(job_id: str):
+    """Check the status of a Spotify download job."""
+    if job_id not in jobs:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    job = jobs[job_id]
+    if job.get("type") != "spotify_download":
+        raise HTTPException(status_code=400, detail="Not a Spotify download job")
+
+    return job
 
 @app.post("/api/auto-lyrics/{slug}")
 async def auto_lyrics(slug: str, request: Request):
