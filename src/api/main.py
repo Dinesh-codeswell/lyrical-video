@@ -22,6 +22,7 @@ from src.core.theme_loader import load_theme, Theme, THEME_PRESETS
 from src.core.lyrics_parser import parse_lrc_string, parse_srt_string
 from src.core.ai_transcriber import generate_ai_lyrics
 from src.core.lyrics_finder import find_lyrics, LyricsFinderError
+import aiohttp  # for /api/lyrics/suggest endpoint
 
 # Optional Spotify service import
 try:
@@ -60,6 +61,9 @@ app.add_middleware(
 
 # Storage for active generation jobs (simplified for MVP)
 jobs = {}
+print("=== Lyric Video Generator API Starting ===")  # DEBUG
+print(f"spotDL available: {SPOTIFY_AVAILABLE}")  # DEBUG
+print(f"aiohttp available: {bool(aiohttp)}")  # DEBUG
 
 @app.get("/api/songs")
 async def get_songs():
@@ -80,11 +84,34 @@ async def get_backgrounds():
 @app.get("/api/lyrics/suggest")
 async def lyrics_suggest(term: str = Query(..., description="Search term for artist/song suggestions")):
     """Search suggestions for artist/song pairs (powered by NetEase Music API)."""
+    print(f"[lyrics/suggest] Searching for: '{term}'")  # DEBUG
     if not term or not term.strip():
+        print("[lyrics/suggest] Empty term, returning empty")  # DEBUG
         return {"suggestions": []}
-    # Note: The suggest function was removed from lyrics_finder.py
-    # This endpoint now returns empty suggestions - can be enhanced later
-    return {"suggestions": []}
+    
+    try:
+        from src.core.lyrics_finder import find_lyrics, LyricsFinderError, _search_track
+        import asyncio
+        
+        # Use the internal search to get candidates (without fetching full lyrics)
+        async def _get_candidates():
+            async with aiohttp.ClientSession() as session:
+                return await _search_track(session, term)
+        
+        candidates = await _get_candidates()
+        print(f"[lyrics/suggest] Found {len(candidates)} candidates")  # DEBUG
+        
+        suggestions = [
+            {"artist": c["item"]["artist"], "title": c["item"]["title"]}
+            for c in candidates
+        ]
+        print(f"[lyrics/suggest] Returning {len(suggestions)} suggestions")  # DEBUG
+        return {"suggestions": suggestions}
+    except Exception as e:
+        print(f"[lyrics/suggest] ERROR: {e}")  # DEBUG
+        import traceback
+        traceback.print_exc()
+        return {"suggestions": []}
 
 
 @app.post("/api/lyrics/search")
@@ -139,8 +166,10 @@ async def lyrics_search(request: Request):
     try:
         from src.core.lyrics_finder import get_lyrics_as_json
         
+        print(f"[lyrics/search] Calling get_lyrics_as_json for '{title}' by '{artist}'")  # DEBUG
         lyrics_data = get_lyrics_as_json(title, artist)
         lyrics_count = len([l for l in lyrics_data["lyrics"] if l["text"]])
+        print(f"[lyrics/search] SUCCESS: {lyrics_count} lines")  # DEBUG
         
         return {
             "success": True,
@@ -151,7 +180,9 @@ async def lyrics_search(request: Request):
             "duration_seconds": lyrics_data["lyrics"][-1]["time"] if lyrics_data["lyrics"] else 0
         }
     except Exception as exc:
-        print(f"[lyrics/search] error for '{title} by {artist}': {exc}")
+        print(f"[lyrics/search] ERROR for '{title} by {artist}': {exc}")  # DEBUG
+        import traceback
+        traceback.print_exc()
         from src.core.lyrics_finder import LyricsFinderError
         if isinstance(exc, LyricsFinderError):
             if "No lyrics found" in str(exc):
@@ -162,19 +193,27 @@ async def lyrics_search(request: Request):
 
 @app.get("/api/lyrics/finder")
 async def lyrics_finder(artist: str, title: str):
-    """Fetch full lyrics for a song from api.lyrics.ovh."""
+    """Fetch full lyrics for a song from NetEase Music API."""
+    print(f"[lyrics/finder] Request: artist='{artist}', title='{title}'")  # DEBUG
     if not artist or not artist.strip():
+        print("[lyrics/finder] ERROR: missing artist")  # DEBUG
         raise HTTPException(status_code=400, detail="artist query parameter is required")
     if not title or not title.strip():
+        print("[lyrics/finder] ERROR: missing title")  # DEBUG
         raise HTTPException(status_code=400, detail="title query parameter is required")
     try:
-        lyrics = find_lyrics(artist.strip(), title.strip())
+        lyrics = find_lyrics(title.strip(), artist.strip())
+        print(f"[lyrics/finder] SUCCESS: got {len(lyrics)} chars of lyrics")  # DEBUG
     except ValueError as ve:
+        print(f"[lyrics/finder] ValueError: {ve}")  # DEBUG
         raise HTTPException(status_code=400, detail=str(ve))
-    except LyricsFinderError:
-        raise HTTPException(status_code=404, detail="No lyrics found")
+    except LyricsFinderError as lfe:
+        print(f"[lyrics/finder] LyricsFinderError: {lfe}")  # DEBUG
+        raise HTTPException(status_code=404, detail=str(lfe))
     except Exception as exc:  # noqa: BLE001
-        print(f"[lyrics/finder] error for '{artist} - {title}': {exc}")
+        print(f"[lyrics/finder] UNEXPECTED ERROR: {exc}")  # DEBUG
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=502, detail="Lyrics service unavailable")
     return {"lyrics": lyrics}
 
@@ -388,7 +427,9 @@ async def download_raw(path: str):
 @app.get("/api/spotify/status")
 async def spotify_status():
     """Check if Spotify download service is available."""
+    print("[spotify/status] Checking Spotify availability")  # DEBUG
     if not SPOTIFY_AVAILABLE:
+        print("[spotify/status] Spotify NOT available - spotDL not installed")  # DEBUG
         return {
             "available": False,
             "reason": "spotDL not installed",
@@ -398,8 +439,10 @@ async def spotify_status():
     try:
         service = SpotifyService(INPUT_AUDIO_DIR)
         status = service.get_status()
+        print(f"[spotify/status] Spotify OK: {status}")  # DEBUG
         return status
     except Exception as e:
+        print(f"[spotify/status] ERROR: {e}")  # DEBUG
         return {
             "available": False,
             "reason": str(e),
@@ -409,7 +452,9 @@ async def spotify_status():
 @app.post("/api/spotify/search")
 async def spotify_search(request: Request):
     """Search Spotify for songs matching a query."""
+    print(f"[spotify/search] Request: '{query}'")  # DEBUG is set below; keep as-is after fix
     if not SPOTIFY_AVAILABLE:
+        print("[spotify/search] Spotify NOT available")  # DEBUG
         raise HTTPException(
             status_code=503,
             detail="Spotify service not available. Install spotDL with: uv pip install spotdl"
@@ -422,6 +467,7 @@ async def spotify_search(request: Request):
 
     query = body.get("query", "").strip()
     limit = body.get("limit", 10)
+    print(f"[spotify/search] Query: '{query}', limit={limit}")  # DEBUG
 
     if not query:
         raise HTTPException(status_code=400, detail="Query parameter is required")
@@ -429,18 +475,25 @@ async def spotify_search(request: Request):
     try:
         service = SpotifyService(INPUT_AUDIO_DIR)
         results = service.search(query, limit=limit)
+        print(f"[spotify/search] Found {len(results)} results")  # DEBUG
         return {"results": [r.to_dict() for r in results]}
     except SpotifyDownloadError as e:
+        print(f"[spotify/search] SpotifyDownloadError: {e}")  # DEBUG
         raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
-        print(f"[spotify/search] error for '{query}': {e}")
+        print(f"[spotify/search] UNEXPECTED ERROR: {e}")  # DEBUG
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
 
 
 @app.post("/api/spotify/download")
 async def spotify_download(request: Request, background_tasks: BackgroundTasks):
     """Download a song from Spotify."""
+    print("[spotify/download] Received download request")  # DEBUG
     if not SPOTIFY_AVAILABLE:
+        print("[spotify/download] Spotify NOT available")  # DEBUG
         raise HTTPException(
             status_code=503,
             detail="Spotify service not available. Install spotDL with: uv pip install spotdl"
@@ -453,6 +506,7 @@ async def spotify_download(request: Request, background_tasks: BackgroundTasks):
 
     spotify_url = body.get("url", "").strip()
     song_slug = body.get("slug", "").strip()
+    print(f"[spotify/download] URL={spotify_url}, slug={song_slug}")  # DEBUG
 
     if not spotify_url:
         raise HTTPException(status_code=400, detail="Spotify URL is required")
@@ -488,32 +542,43 @@ async def spotify_download(request: Request, background_tasks: BackgroundTasks):
                     "audio_path": str(target_path),
                     "metadata": metadata,
                 })
+                print(f"[spotify/download] SUCCESS: {target_path}")  # DEBUG
             except Exception as e:
                 jobs[job_id].update({
                     "status": "failed",
                     "error": str(e),
                 })
+                print(f"[spotify/download] FAILED: {e}")  # DEBUG
 
         background_tasks.add_task(download_task)
+        print(f"[spotify/download] Started job {job_id}")  # DEBUG
         return {"job_id": job_id, "status": "started"}
 
     except SpotifyDownloadError as e:
+        print(f"[spotify/download] SpotifyDownloadError: {e}")  # DEBUG
         raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
-        print(f"[spotify/download] error for '{spotify_url}': {e}")
+        print(f"[spotify/download] UNEXPECTED ERROR: {e}")  # DEBUG
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Download failed: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Download failed: {str(e)}")
 
 
 @app.get("/api/spotify/download-status/{job_id}")
 async def spotify_download_status(job_id: str):
     """Check the status of a Spotify download job."""
+    print(f"[spotify/download-status] Checking job {job_id}")  # DEBUG
     if job_id not in jobs:
+        print(f"[spotify/download-status] Job {job_id} not found")  # DEBUG
         raise HTTPException(status_code=404, detail="Job not found")
 
     job = jobs[job_id]
     if job.get("type") != "spotify_download":
+        print(f"[spotify/download-status] Job {job_id} is not a Spotify download")  # DEBUG
         raise HTTPException(status_code=400, detail="Not a Spotify download job")
 
+    print(f"[spotify/download-status] Job {job_id}: {job}")  # DEBUG
     return job
 
 @app.post("/api/auto-lyrics/{slug}")

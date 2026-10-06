@@ -1507,3 +1507,224 @@
   color: var(--silver-whisper, #acadae);
   text-align: center;
 }
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* Spotify Tab Styles                                                         */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+.spotify-tab-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.spotify-unavailable {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: rgba(226, 71, 86, 0.1);
+  border: 1px solid rgba(226, 71, 86, 0.3);
+  border-radius: 8px;
+  padding: 12px;
+  color: #f87171;
+  font-size: 13px;
+}
+
+.spotify-unavailable-reason {
+  margin: 0;
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+.spotify-unavailable-hint {
+  margin: 6px 0 0 0;
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.spotify-unavailable code {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+}
+
+.spotify-search-box {
+  display: flex;
+  gap: 8px;
+}
+
+.spotify-search-box .pro-text-input {
+  flex: 1;
+}
+
+.btn-spotify-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--nle-accent-cyan, #00f2fe);
+  color: #000000;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 12px;
+  white-space: nowrap;
+  transition: opacity 0.15s ease;
+}
+
+.btn-spotify-search:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.btn-spotify-search:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.spotify-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(226, 71, 86, 0.12);
+  color: #f87171;
+  border: 1px solid rgba(226, 71, 86, 0.4);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.spotify-results {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.spotify-result-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--nle-surface-muted, #1f2128);
+  border: 1px solid var(--nle-border, #252837);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.spotify-result-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.spotify-result-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.spotify-result-artist {
+  font-size: 12px;
+  color: var(--silver-whisper, #acadae);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.spotify-result-album {
+  font-size: 11px;
+  color: var(--silver-whisper, #acadae);
+  opacity: 0.6;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.spotify-result-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.spotify-result-duration {
+  font-size: 12px;
+  font-family: var(--font-ui-monospace, monospace);
+  color: var(--silver-whisper, #acadae);
+}
+
+.btn-spotify-download {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(0, 242, 254, 0.1);
+  border: 1px solid rgba(0, 242, 254, 0.3);
+  color: var(--nle-accent-cyan, #00f2fe);
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-spotify-download:hover:not(:disabled) {
+  background: rgba(0, 242, 254, 0.2);
+}
+
+.btn-spotify-download:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.spotify-download-status {
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.spotify-status-success {
+  background: rgba(71, 187, 100, 0.15);
+  color: #47bb64;
+  border: 1px solid rgba(71, 187, 100, 0.3);
+}
+
+.spotify-status-progress {
+  background: rgba(0, 242, 254, 0.1);
+  color: var(--nle-accent-cyan, #00f2fe);
+  border: 1px solid rgba(0, 242, 254, 0.2);
+}
+
+.spotify-status-error {
+  background: rgba(226, 71, 86, 0.12);
+  color: #f87171;
+  border: 1px solid rgba(226, 71, 86, 0.3);
+}
+
+.spotify-hint {
+  background: var(--nle-surface-muted, #1f2128);
+  border: 1px dashed var(--nle-border, #252837);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--silver-whisper, #acadae);
+  text-align: center;
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

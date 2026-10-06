@@ -5,12 +5,12 @@ import {
   FolderPlus,  Palette, Type, Wand2, Mic2, SlidersHorizontal, 
   ChevronLeft, ChevronRight, X, Smartphone, Monitor, Square, 
   AlignLeft, AlignCenter, AlignRight, Check, Sparkles, Layers,
-  Search, Sliders
+  Search, Sliders, Music, Download, Spotify, AlertCircle, Loader2
 } from 'lucide-react';
 import { SongSelector } from './SongSelector';
 import './StudioDrawer.css';
 
-export type StudioTab = 'media' | 'presets' | 'transitions' | 'effects' | 'lyrics' | 'text' | 'motion' | 'karaoke' | 'canvas';
+export type StudioTab = 'media' | 'presets' | 'transitions' | 'effects' | 'lyrics' | 'spotify' | 'text' | 'motion' | 'karaoke' | 'canvas';
 
 interface StudioDrawerProps {
   theme: Theme;
@@ -95,14 +95,22 @@ const LyricsFinderTab: React.FC<{
     if (!s) return;
     setState((st) => ({ ...st, loading: true, error: null, lyrics: null }));
     try {
-      const resp = await fetch(
-        `/api/lyrics/finder?artist=${encodeURIComponent(s.artist)}&title=${encodeURIComponent(s.title)}`
-      );
+      // Use the POST /api/lyrics/search endpoint which expects { title, artist }
+      const resp = await fetch('/api/lyrics/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: s.title, artist: s.artist }),
+      });
       const data = await resp.json();
-      if (resp.ok && data.lyrics) {
-        setState((st) => ({ ...st, lyrics: data.lyrics, loading: false }));
+      if (resp.ok && data.success && data.lyrics) {
+        // Convert structured lyrics back to plain text (line-separated)
+        const plainLyrics = data.lyrics
+          .filter((l: { text: string }) => l.text)
+          .map((l: { text: string }) => l.text)
+          .join('\r\n');
+        setState((st) => ({ ...st, lyrics: plainLyrics, loading: false }));
       } else {
-        setState((st) => ({ ...st, loading: false, error: data.error || 'No lyrics found' }));
+        setState((st) => ({ ...st, loading: false, error: data.detail || data.error || 'No lyrics found' }));
       }
     } catch (err) {
       setState((st) => ({ ...st, loading: false, error: 'Failed to fetch lyrics' }));
@@ -249,6 +257,213 @@ const LyricsFinderTab: React.FC<{
 };
 
 
+interface SpotifySearchState {
+  query: string;
+  results: { spotify_url: string; title: string; artist: string; album: string; duration: number; spotify_id: string }[];
+  loading: boolean;
+  error: string | null;
+  status: { available: boolean; reason?: string } | null;
+  downloadJobId: string | null;
+  downloadStatus: { status: string; progress: number; error?: string } | null;
+}
+
+const SpotifyTab: React.FC<{
+  selectedSong: string | null;
+  onSongSelect: (slug: string) => void;
+  clips?: LyricClip[];
+  onClipsChange?: (clips: LyricClip[], actionName?: string) => void;
+}> = ({ selectedSong, onSongSelect, clips, onClipsChange }) => {
+  const [state, setState] = useState<SpotifySearchState>({
+    query: '',
+    results: [],
+    loading: false,
+    error: null,
+    status: null,
+    downloadJobId: null,
+    downloadStatus: null,
+  });
+
+  // Check Spotify availability on mount
+  useEffect(() => {
+    fetch('/api/spotify/status')
+      .then(r => r.json())
+      .then(data => setState(s => ({ ...s, status: data })))
+      .catch(() => setState(s => ({ ...s, status: { available: false, reason: 'Unable to reach API' } })));
+  }, []);
+
+  const searchSpotify = async () => {
+    if (!state.query.trim()) return;
+    setState(s => ({ ...s, loading: true, error: null, results: [] }));
+    try {
+      const resp = await fetch('/api/spotify/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: state.query, limit: 10 }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        setState(s => ({ ...s, loading: false, error: data.detail || 'Search failed' }));
+      } else {
+        setState(s => ({ ...s, loading: false, results: data.results || [] }));
+      }
+    } catch (err) {
+      setState(s => ({ ...s, loading: false, error: 'Network error' }));
+    }
+  };
+
+  const handleQueryChange = (value: string) => {
+    setState(s => ({ ...s, query: value, error: null }));
+  };
+
+  const downloadSong = async (spotifyUrl: string) => {
+    if (!selectedSong) {
+      // Auto-select a song slug from the current selection or prompt
+      return;
+    }
+    setState(s => ({ ...s, downloadJobId: null, downloadStatus: null }));
+    try {
+      const resp = await fetch('/api/spotify/download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: spotifyUrl, slug: selectedSong }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        setState(s => ({ ...s, error: data.detail || 'Download failed' }));
+      } else {
+        setState(s => ({ ...s, downloadJobId: data.job_id }));
+        // Poll for completion
+        const poll = setInterval(async () => {
+          try {
+            const statusResp = await fetch(`/api/spotify/download-status/${data.job_id}`);
+            const statusData = await statusResp.json();
+            setState(s => ({ ...s, downloadStatus: statusData }));
+            if (statusData.status === 'completed' || statusData.status === 'failed') {
+              clearInterval(poll);
+              if (statusData.status === 'completed' && onSongSelect) {
+                // Refresh song list by re-selecting the current song
+                onSongSelect(selectedSong);
+              }
+            }
+          } catch {
+            clearInterval(poll);
+          }
+        }, 1000);
+      }
+    } catch (err) {
+      setState(s => ({ ...s, error: 'Download request failed' }));
+    }
+  };
+
+  const formatDuration = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const isAvailable = state.status?.available;
+
+  return (
+    <div className="drawer-section spotify-tab-content">
+      <div className="section-instruction mb-2">
+        Search and download songs from Spotify. Requires <code>spotDL</code> on the server.
+      </div>
+
+      {!isAvailable && state.status && (
+        <div className="spotify-unavailable">
+          <AlertCircle size={20} />
+          <div>
+            <strong>Spotify not available</strong>
+            <p className="spotify-unavailable-reason">{state.status.reason || 'Unknown reason'}</p>
+            <p className="spotify-unavailable-hint">
+              Run <code>uv pip install spotdl</code> on the server to enable.
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div className="spotify-search-box">
+        <input
+          type="text"
+          value={state.query}
+          onChange={e => handleQueryChange(e.target.value)}
+          placeholder="Artist — Song (e.g. ABBA — Winner Takes It All)"
+          className="pro-text-input"
+          onKeyDown={e => e.key === 'Enter' && searchSpotify()}
+        />
+        <button
+          type="button"
+          className="btn-spotify-search"
+          onClick={searchSpotify}
+          disabled={state.loading || !state.query.trim()}
+        >
+          {state.loading ? <><Loader2 size={16} className="animate-spin" /> Searching…</> : <><Search size={16} /> Search</>}
+        </button>
+      </div>
+
+      {state.error && (
+        <div className="spotify-error">
+          <AlertCircle size={14} /> {state.error}
+        </div>
+      )}
+
+      {state.results.length > 0 && (
+        <div className="spotify-results">
+          {state.results.map((r, idx) => (
+            <div key={idx} className="spotify-result-item">
+              <div className="spotify-result-info">
+                <span className="spotify-result-title">{r.title}</span>
+                <span className="spotify-result-artist">{r.artist}</span>
+                {r.album && <span className="spotify-result-album">{r.album}</span>}
+              </div>
+              <div className="spotify-result-actions">
+                <span className="spotify-result-duration">{formatDuration(r.duration)}</span>
+                <button
+                  type="button"
+                  className="btn-spotify-download"
+                  onClick={() => downloadSong(r.spotify_url)}
+                  disabled={!selectedSong}
+                  title={selectedSong ? 'Download to current song' : 'Select a song first'}
+                >
+                  <Download size={14} />
+                  {selectedSong ? 'Download' : 'No Song'}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {state.downloadStatus && (
+        <div className="spotify-download-status">
+          {state.downloadStatus.status === 'completed' && (
+            <div className="spotify-status-success">
+              <Check size={14} /> Download complete! Song added to library.
+            </div>
+          ))}
+          {state.downloadStatus.status === 'downloading' && (
+            <div className="spotify-status-progress">
+              <Loader2 size={14} className="animate-spin" />
+              Downloading… {Math.round((state.downloadStatus.progress || 0) * 100)}%
+            </div>
+          ))}
+          {state.downloadStatus.status === 'failed' && (
+            <div className="spotify-status-error">
+              <AlertCircle size={14} /> Download failed: {state.downloadStatus.error}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!selectedSong && (
+        <div className="spotify-hint">
+          Select a song from the Media tab first to download Spotify tracks to it.
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const StudioDrawer: React.FC<StudioDrawerProps> = ({
   theme,
   onThemeChange,
@@ -349,6 +564,16 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
           >
             <Search size={18} />
             <span className="rail-tab-label">Lyrics</span>
+          </button>
+
+          <button 
+            type="button"
+            className={`rail-tab-btn ${currentTab === 'spotify' && isOpen ? 'active' : ''}`}
+            onClick={() => handleSelectTab('spotify')}
+            title="Spotify — search & download tracks"
+          >
+            <Spotify size={18} />
+            <span className="rail-tab-label">Spotify</span>
           </button>
 
           <button 
@@ -459,6 +684,12 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
                 <span className="drawer-badge">{theme.aspect_ratio}</span>
               </>
             )}
+            {currentTab === 'spotify' && (
+              <>
+                <h3 className="drawer-title">Spotify Downloader</h3>
+                <span className="drawer-badge">{state?.status?.available ? 'Ready' : 'Unavailable'}</span>
+              </>
+            )}
           </div>
 
           <button 
@@ -538,6 +769,16 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
           {/* TAB: LYRICS FINDER */}
           {currentTab === 'lyrics' && (
             < LyricsFinderTab 
+              selectedSong={selectedSong}
+              onSongSelect={onSongSelect}
+              clips={clips}
+              onClipsChange={onClipsChange}
+            />
+          )}
+
+          {/* TAB: SPOTIFY DOWNLOADER */}
+          {currentTab === 'spotify' && (
+            <SpotifyTab 
               selectedSong={selectedSong}
               onSongSelect={onSongSelect}
               clips={clips}
