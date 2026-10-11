@@ -5,7 +5,7 @@ import {
   FolderPlus,  Palette, Type, Wand2, Mic2, SlidersHorizontal, 
   ChevronLeft, ChevronRight, X, Smartphone, Monitor, Square, 
   AlignLeft, AlignCenter, AlignRight, Check, Sparkles, Layers,
-  Search, Sliders, Music, Download, Spotify, AlertCircle, Loader2
+  Search, Sliders, Music, Download, AlertCircle, Loader2
 } from 'lucide-react';
 import { SongSelector } from './SongSelector';
 import './StudioDrawer.css';
@@ -271,9 +271,7 @@ interface SpotifySearchState {
 const SpotifyTab: React.FC<{
   selectedSong: string | null;
   onSongSelect: (slug: string) => void;
-  clips?: LyricClip[];
-  onClipsChange?: (clips: LyricClip[], actionName?: string) => void;
-}> = ({ selectedSong, onSongSelect, clips, onClipsChange }) => {
+}> = ({ selectedSong, onSongSelect }) => {
   const [state, setState] = useState<SpotifySearchState>({
     query: '',
     results: [],
@@ -441,18 +439,18 @@ const SpotifyTab: React.FC<{
             <div className="spotify-status-success">
               <Check size={14} /> Download complete! Song added to library.
             </div>
-          ))}
+          )}
           {state.downloadStatus.status === 'downloading' && (
             <div className="spotify-status-progress">
               <Loader2 size={14} className="animate-spin" />
               Downloading… {Math.round((state.downloadStatus.progress || 0) * 100)}%
             </div>
-          ))}
+          )}
           {state.downloadStatus.status === 'failed' && (
             <div className="spotify-status-error">
               <AlertCircle size={14} /> Download failed: {state.downloadStatus.error}
             </div>
-          ))}
+          )}
         </div>
       )}
 
@@ -482,6 +480,15 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
   const [effectCategory, setEffectCategory] = useState<'all' | 'color' | 'texture' | 'retro'>('all');
   const [transitionCategory, setTransitionCategory] = useState<'all' | 'dissolve' | 'wipe' | 'motion' | 'light'>('all');
   const currentTab = controlledTab || internalTab;
+  const [spotifyStatus, setSpotifyStatus] = useState<{ available: boolean } | null>(null);
+
+  // Check Spotify API availability for the drawer header badge
+  useEffect(() => {
+    fetch('/api/spotify/status')
+      .then(r => r.json())
+      .then((data: { available: boolean }) => setSpotifyStatus(data))
+      .catch(() => setSpotifyStatus({ available: false }));
+  }, []);
 
   const handleSelectTab = (tab: StudioTab) => {
     if (onTabChange) onTabChange(tab);
@@ -573,7 +580,7 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
             onClick={() => handleSelectTab('spotify')}
             title="Spotify — search & download tracks"
           >
-            <Spotify size={18} />
+            <Music size={18} />
             <span className="rail-tab-label">Spotify</span>
           </button>
 
@@ -688,7 +695,7 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
             {currentTab === 'spotify' && (
               <>
                 <h3 className="drawer-title">Spotify Downloader</h3>
-                <span className="drawer-badge">{state?.status?.available ? 'Ready' : 'Unavailable'}</span>
+                <span className="drawer-badge">{spotifyStatus?.available ? 'Ready' : 'Unavailable'}</span>
               </>
             )}
           </div>
@@ -782,8 +789,6 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
             <SpotifyTab 
               selectedSong={selectedSong}
               onSongSelect={onSongSelect}
-              clips={clips}
-              onClipsChange={onClipsChange}
             />
           )}
 

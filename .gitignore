@@ -98,6 +98,7 @@ libopenshot-develop/
 # Downloaded/open-source reference projects (not part of the app)
 lyrics.ovh-main/
 lyrics/
+filmcraft-main/
 
 # Test output files
 test_*.txt
