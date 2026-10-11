@@ -2,6 +2,7 @@ from fastapi import FastAPI, UploadFile, File, Form, BackgroundTasks, HTTPExcept
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pathlib import Path
+import asyncio
 import uuid
 import shutil
 import json
@@ -167,7 +168,9 @@ async def lyrics_search(request: Request):
         from src.core.lyrics_finder import get_lyrics_as_json
         
         print(f"[lyrics/search] Calling get_lyrics_as_json for '{title}' by '{artist}'")  # DEBUG
-        lyrics_data = get_lyrics_as_json(title, artist)
+        # Run in a thread: find_lyrics() uses asyncio.run() internally,
+        # which cannot be called from the running event loop of this async endpoint.
+        lyrics_data = await asyncio.to_thread(get_lyrics_as_json, title, artist)
         lyrics_count = len([l for l in lyrics_data["lyrics"] if l["text"]])
         print(f"[lyrics/search] SUCCESS: {lyrics_count} lines")  # DEBUG
         
@@ -202,7 +205,9 @@ async def lyrics_finder(artist: str, title: str):
         print("[lyrics/finder] ERROR: missing title")  # DEBUG
         raise HTTPException(status_code=400, detail="title query parameter is required")
     try:
-        lyrics = find_lyrics(title.strip(), artist.strip())
+        # Run in a thread: find_lyrics() uses asyncio.run() internally,
+        # which cannot be called from the running event loop of this async endpoint.
+        lyrics = await asyncio.to_thread(find_lyrics, title.strip(), artist.strip())
         print(f"[lyrics/finder] SUCCESS: got {len(lyrics)} chars of lyrics")  # DEBUG
     except ValueError as ve:
         print(f"[lyrics/finder] ValueError: {ve}")  # DEBUG
