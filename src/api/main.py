@@ -457,7 +457,6 @@ async def spotify_status():
 @app.post("/api/spotify/search")
 async def spotify_search(request: Request):
     """Search Spotify for songs matching a query."""
-    print(f"[spotify/search] Request: '{query}'")  # DEBUG is set below; keep as-is after fix
     if not SPOTIFY_AVAILABLE:
         print("[spotify/search] Spotify NOT available")  # DEBUG
         raise HTTPException(
@@ -479,7 +478,9 @@ async def spotify_search(request: Request):
 
     try:
         service = SpotifyService(INPUT_AUDIO_DIR)
-        results = service.search(query, limit=limit)
+        # Run in a thread: spotDL search does blocking network I/O
+        # and must not block the running event loop of this async endpoint.
+        results = await asyncio.to_thread(service.search, query, limit)
         print(f"[spotify/search] Found {len(results)} results")  # DEBUG
         return {"results": [r.to_dict() for r in results]}
     except SpotifyDownloadError as e:
@@ -489,7 +490,6 @@ async def spotify_search(request: Request):
         print(f"[spotify/search] UNEXPECTED ERROR: {e}")  # DEBUG
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
 
 
@@ -566,7 +566,6 @@ async def spotify_download(request: Request, background_tasks: BackgroundTasks):
         print(f"[spotify/download] UNEXPECTED ERROR: {e}")  # DEBUG
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Download failed: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Download failed: {str(e)}")
 
 

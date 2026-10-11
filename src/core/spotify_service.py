@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -70,6 +71,35 @@ def _get_spotdl_module(name: str):
         raise SpotifyServiceUnavailable("spotDL modules not loaded")
     
     return _SPOTDL_MODULES.get(name)
+
+
+_SPOTIFY_CLIENT_INITIALIZED = False
+
+
+def _ensure_spotify_client() -> None:
+    """Initialize spotDL's Spotify client (required before search/download).
+
+    spotDL 4.x requires SpotifyClient.init() to be called once before any
+    search or metadata fetch. We use spotDL's bundled default credentials
+    (the same ones its own CLI uses), overridable via environment variables:
+        SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET
+    """
+    global _SPOTIFY_CLIENT_INITIALIZED
+    if _SPOTIFY_CLIENT_INITIALIZED:
+        return
+
+    from spotdl.utils.spotify import SpotifyClient
+    from spotdl.utils.config import SPOTIFY_OPTIONS
+
+    SpotifyClient.init(
+        client_id=os.environ.get("SPOTIFY_CLIENT_ID", SPOTIFY_OPTIONS["client_id"]),
+        client_secret=os.environ.get(
+            "SPOTIFY_CLIENT_SECRET", SPOTIFY_OPTIONS["client_secret"]
+        ),
+        user_auth=False,
+    )
+    _SPOTIFY_CLIENT_INITIALIZED = True
+    logger.info("spotDL Spotify client initialized")
 
 
 def _search_spotify(query: str, limit: int = 10) -> list:
@@ -177,6 +207,9 @@ class SpotifyService:
 
         # Initialize downloader with application-specific settings
         self._init_downloader()
+
+        # Initialize spotDL's Spotify client (required for search/metadata)
+        _ensure_spotify_client()
 
     def _init_downloader(self) -> None:
         """Initialize the spotDL Downloader with our settings."""
@@ -303,7 +336,7 @@ class SpotifyService:
                 })
 
             # Create song object from URL
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             song = await loop.run_in_executor(None, lambda: Song.from_url(spotify_url))
 
             if not song:
