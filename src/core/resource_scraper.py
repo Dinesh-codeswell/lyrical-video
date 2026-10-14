@@ -53,7 +53,8 @@ class DiscoveredAsset:
     rank_trend: str = ""        # site-specific ranking/trend info
     scraped_at: str = field(default_factory=lambda: datetime.now().isoformat())
     local_path: str = ""        # filled in Phase 2 when downloaded
-    status: str = " indexed"    # "indexed" | "queued" | "downloaded" | "failed"
+    status: str = "indexed"     # "indexed" | "queued" | "downloaded" | "failed"
+    id: Optional[int] = None     # DB row id (set by iter_assets; NULL until saved)
 
 
 # ---------------------------------------------------------------------------
@@ -180,6 +181,7 @@ def iter_assets(
         except Exception:
             pass
         out.append(DiscoveredAsset(
+            id=r["id"],
             source_site=r["site_name"],
             source_url=r["source_url"],
             title=r["title"],
@@ -195,7 +197,9 @@ def iter_assets(
             rank_trend=r["rank_trend"],
             scraped_at=r["scraped_at"],
             local_path=r["local_path"],
-            status=r["status"],
+            # Older rows were written with the legacy " indexed" default
+            # (leading space); trim so status filters/matches work.
+            status=str(r["status"] or "").strip() or "indexed",
         ))
     return out
 

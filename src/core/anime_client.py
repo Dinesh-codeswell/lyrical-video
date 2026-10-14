@@ -67,6 +67,33 @@ def _http_get(url: str, params: dict | None = None, timeout: int = 30) -> reques
     return resp
 
 
+# Rating vocabularies differ per backend. Endpoints pass values like "safe"
+# around, so normalise to each backend's own enum — unknown values fall back
+# to the safest option instead of triggering a 422 validation error.
+_NEKOS_RATING_ALIASES: dict[str, str] = {
+    "safe": "safe", "s": "safe", "g": "safe", "general": "safe", "sfw": "safe",
+    "suggestive": "suggestive",
+    "questionable": "borderline", "q": "borderline", "borderline": "borderline",
+    "explicit": "explicit", "e": "explicit", "nsfw": "explicit",
+}
+_DANBOORU_RATING_ALIASES: dict[str, str] = {
+    "safe": "general", "g": "general", "general": "general",
+    "suggestive": "sensitive", "s": "sensitive", "sensitive": "sensitive",
+    "questionable": "questionable", "q": "questionable", "borderline": "questionable",
+    "explicit": "explicit", "e": "explicit", "nsfw": "explicit",
+}
+
+
+def _nekos_rating(rating: str | None) -> str:
+    """Normalise a rating to Nekos' vocabulary (safe/suggestive/…)."""
+    return _NEKOS_RATING_ALIASES.get((rating or "safe").strip().lower(), "safe")
+
+
+def _danbooru_rating(rating: str | None) -> str:
+    """Normalise a rating to Danbooru's vocabulary (general/sensitive/…)."""
+    return _DANBOORU_RATING_ALIASES.get((rating or "safe").strip().lower(), "general")
+
+
 # ── Result type ─────────────────────────────────────────────────────────────
 
 @dataclass
@@ -109,52 +136,146 @@ class _NekosBackend:
         self,
         query: str,
         limit: int = 20,
-        rating: str = "s",
+        rating: str = "safe",
     ) -> list[AnimeImage]:
         """Search Nekos API images by tag query string.
 
+        The v5 ``/images`` endpoint matches ``tag`` **exactly**, so a
+        free-text query is tried as-is first and then resolved to real tag
+        names via the ``/tags`` substring endpoint before retrying.
+
         Args:
-            query: Free-text tag search (space-separated AND logic on the API side).
-            limit: Maximum images to return.
-            rating: Rating filter — ``"s"``, ``"e"``, ``"q"``, or ``"safe|e|questionable"``.
+            query: Free-text tag search (e.g. "catgirl", "demon slayer").
+            limit: Maximum images to return (API cap is 100).
+            rating: Rating filter — ``safe``/``suggestive``/``borderline``/
+                ``explicit`` (aliases like ``s``/``q``/``nsfw`` accepted).
+        """
+        if not query or not query.strip():
+            return []
+        limit = max(1, min(int(limit or 20), 100))
+        rating = _nekos_rating(rating)
+        query = query.strip()
+
+        # 1) Try the query as an exact tag name.
+        results = self._fetch_images(tags=[query], limit=limit, rating=rating)
+        if results:
+            return results
+
+        # 2) Resolve the free text to real tag names (substring match).
+        names = self._resolve_tags(query, limit=5)
+        if not names:
+            return []
+        return self._fetch_images(tags=names, limit=limit, rating=rating)
+
+    def _resolve_tags(self, query: str, limit: int = 5) -> list[str]:
+        """Resolve a free-text query to exact Nekos tag names.
+
+        Uses ``GET /v5/tags?name=…`` (case-insensitive substring match).
+        Returns an empty list on any failure.
+        """
+        url = f"{NEKOS_API_BASE}/tags"
+        params: dict[str, Any] = {"name": query, "limit": max(1, min(limit, 100))}
+        if NEKOS_API_KEY:
+            params["api_key"] = NEKOS_API_KEY
+        try:
+            resp = _http_get(url, params=params)
+        except requests.RequestException:
+            return []
+        data = resp.json()
+        if isinstance(data, dict):
+            items = data.get("items") or data.get("data") or []
+        elif isinstance(data, list):
+            items = data
+        else:
+            items = []
+        return [
+            str(item["name"])
+            for item in items
+            if isinstance(item, dict) and item.get("name")
+        ][:limit]
+
+    def _fetch_images(
+        self,
+        tags: list[str],
+        limit: int,
+        rating: str,
+    ) -> list[AnimeImage]:
+        """Fetch images from ``GET /v5/images`` with exact tag filters.
+
+        ``tag`` is a repeatable param (OR semantics, API max 5 tags);
+        pagination is ``limit``/``offset`` and the rating filter is a plain
+        ``rating`` param — older ``filter[rating][in][0]``/``page[size]``
+        names are silently ignored by the API.
         """
         url = f"{NEKOS_API_BASE}/images"
-        params: dict[str, Any] = {
-            "tag": query,
-            "page[size]": limit,
-            "sort": "-created_at",
-        }
+        params: dict[str, Any] = {"limit": limit}
+        if tags:
+            params["tag"] = tags[:5]
         if rating:
-            params["filter[rating][in][0]"] = rating
+            params["rating"] = rating
         if NEKOS_API_KEY:
             params["api_key"] = NEKOS_API_KEY
 
         resp = _http_get(url, params=params)
         data = resp.json()
-        results = data.get("data", [])
-        return [_nekos_row_to_image(row, "nekos") for row in results]
+        # Nekos v5 returns {"items": [...], "total": N}. Older/mock shapes
+        # used {"data": [...]}; accept either so the parser is robust.
+        if isinstance(data, dict):
+            results = data.get("items") or data.get("data") or []
+        elif isinstance(data, list):
+            results = data
+        else:
+            results = []
+        return [_nekos_row_to_image(row, "nekos") for row in results if isinstance(row, dict)]
 
     def get_random(
         self,
         tag: str | None = None,
-        rating: str = "s",
+        rating: str = "safe",
     ) -> AnimeImage | None:
-        """Return a random image, optionally filtered by a single tag."""
-        url = f"{NEKOS_API_BASE}/images/random"
-        params: dict[str, Any] = {}
-        if tag:
-            params["tag"] = tag
-        if rating:
-            params["filter[rating][in][0]"] = rating
-        if NEKOS_API_KEY:
-            params["api_key"] = NEKOS_API_KEY
+        """Return a random image, optionally filtered by a single tag.
 
-        try:
-            resp = _http_get(url, params=params)
-        except requests.HTTPError:
+        The v5 ``tag`` filter is an exact-name match and an unknown tag
+        yields 404, so when a tag is given we try: the raw tag → a tag
+        resolved via ``/tags`` → no tag at all. This way free-text tags
+        (and typos) still produce an image instead of a hard failure.
+        """
+        url = f"{NEKOS_API_BASE}/images/random"
+        rating = _nekos_rating(rating)
+
+        attempts: list[str | None] = [tag.strip()] if tag and tag.strip() else [None]
+        if attempts[0]:
+            resolved = self._resolve_tags(attempts[0], limit=1)
+            if resolved and resolved[0] != attempts[0]:
+                attempts.append(resolved[0])
+            attempts.append(None)  # last resort: untagged random
+
+        resp: requests.Response | None = None
+        for candidate in attempts:
+            params: dict[str, Any] = {}
+            if candidate:
+                params["tag"] = candidate
+            if rating:
+                params["rating"] = rating
+            if NEKOS_API_KEY:
+                params["api_key"] = NEKOS_API_KEY
+            try:
+                resp = _http_get(url, params=params)
+                break
+            except requests.RequestException:
+                continue
+        if resp is None:
             return None
-        row = resp.json().get("data")
-        if not row:
+
+        data = resp.json()
+        # Nekos v5 /images/random returns a flat image object (no "data"
+        # wrapper). Be tolerant: unwrap "data" if present, else use the
+        # object itself.
+        if isinstance(data, dict) and "data" in data and isinstance(data["data"], dict):
+            row = data["data"]
+        else:
+            row = data
+        if not isinstance(row, dict) or not row:
             return None
         return _nekos_row_to_image(row, "nekos")
 
@@ -165,24 +286,58 @@ class _NekosBackend:
 
 
 def _nekos_row_to_image(row: dict[str, Any], backend: str) -> AnimeImage:
-    meta = row.get("meta", {}) or {}
-    urls = meta.get("urls", {}) or {}
-    source = meta.get("source", {}) or {}
-    tags_raw = row.get("tags", [])
-    tags = [t.get("name", "") for t in tags_raw if isinstance(t, dict)]
+    """Convert a Nekos API image row into an :class:`AnimeImage`.
 
-    url = urls.get("original") or urls.get("regular") or ""
-    preview = urls.get("preview") or urls.get("regular") or url
-    source_url = source.get("url") or ""
+    Handles both the current flat v5 shape (``url``/``source_url``/``tags``
+    at the top level, tags as ``[{"name": ...}]``) and the older nested
+    shape (``meta.urls`` / ``meta.source``) so parsing is robust to either.
+    """
+    # Tags: list of dicts with "name" (v5) — tolerate plain strings too.
+    tags_raw = row.get("tags", [])
+    tags: list[str] = []
+    if isinstance(tags_raw, list):
+        for t in tags_raw:
+            if isinstance(t, dict):
+                name = t.get("name")
+                if name:
+                    tags.append(str(name))
+            elif isinstance(t, str):
+                tags.append(t)
+
+    # Image URL: flat "url" (v5) or nested meta.urls (older shape).
+    meta = row.get("meta", {}) or {}
+    urls = (meta.get("urls", {}) if isinstance(meta, dict) else {}) or {}
+    source = (meta.get("source", {}) if isinstance(meta, dict) else {}) or {}
+
+    url = (
+        row.get("url")
+        or urls.get("original")
+        or urls.get("regular")
+        or ""
+    )
+    preview = (
+        row.get("preview_url")
+        or urls.get("preview")
+        or urls.get("regular")
+        or url
+    )
+    source_url = row.get("source_url") or source.get("url") or ""
+
+    # Numeric fields may be absent in v5 — fall back to 0.
+    def _int(v: Any) -> int:
+        try:
+            return int(v or 0)
+        except (TypeError, ValueError):
+            return 0
 
     return AnimeImage(
         url=url,
         preview_url=preview,
         source_url=source_url,
         tags=tags,
-        score=int(row.get("score", 0) or 0),
-        width=int(row.get("width", 0) or 0),
-        height=int(row.get("height", 0) or 0),
+        score=_int(row.get("score")),
+        width=_int(row.get("width")),
+        height=_int(row.get("height")),
         backend=backend,
     )
 
@@ -217,7 +372,7 @@ class _DanbooruBackend:
             "content": "1",  # exclude wikis/notes
         }
         if rating:
-            params["rating"] = rating
+            params["rating"] = _danbooru_rating(rating)
 
         try:
             resp = self._session.get(url, params=params, timeout=30)
@@ -237,7 +392,7 @@ class _DanbooruBackend:
         url = f"{DANBOORU_API_BASE}/posts/random.json"
         params: dict[str, Any] = {
             "content": "1",
-            "rating": rating,
+            "rating": _danbooru_rating(rating),
         }
         if tag:
             params["tags"] = tag
@@ -328,12 +483,19 @@ class AnimeImageClient:
     ) -> AnimeImage | None:
         """Get a single random anime image, optionally tagged."""
         self._cooldown("nekos")
-        img = self.nekos.get_random(tag=tag, rating=rating)
-        if img:
-            return img
+        try:
+            img = self.nekos.get_random(tag=tag, rating=rating)
+            if img:
+                return img
+        except requests.RequestException:
+            # Nekos unreachable/timed out — fall through to Danbooru.
+            pass
 
         self._cooldown("danbooru")
-        return self.danbooru.get_random(tag=tag, rating=rating)
+        try:
+            return self.danbooru.get_random(tag=tag, rating=rating)
+        except requests.RequestException:
+            return None
 
     # ── download ──────────────────────────────────────────────────────────
 

@@ -319,16 +319,38 @@ const AnimeImagesTab: React.FC<{
   const [query, setQuery] = useState('');
   const [selectedImage, setSelectedImage] = useState<AnimeImageResult | null>(null);
 
+  // Defensive normalizer: ensures an object is a usable AnimeImageResult with
+  // a tags array, so a malformed/error payload can never crash the grid render.
+  const sanitizeImage = (raw: any): AnimeImageResult | null => {
+    if (!raw || typeof raw !== 'object' || typeof raw.url !== 'string' || !raw.url) return null;
+    return {
+      url: raw.url,
+      preview_url: typeof raw.preview_url === 'string' && raw.preview_url ? raw.preview_url : raw.url,
+      source_url: typeof raw.source_url === 'string' ? raw.source_url : '',
+      tags: Array.isArray(raw.tags) ? raw.tags.filter((t: any) => typeof t === 'string') : [],
+      score: typeof raw.score === 'number' ? raw.score : 0,
+      width: typeof raw.width === 'number' ? raw.width : 0,
+      height: typeof raw.height === 'number' ? raw.height : 0,
+      backend: typeof raw.backend === 'string' ? raw.backend : '',
+    };
+  };
+
   const searchImages = useCallback(async () => {
     if (!query.trim()) return;
     setLoading(true);
     try {
       const resp = await fetch(`/api/anime/search?q=${encodeURIComponent(query)}&limit=30`);
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({} as any));
+        throw new Error(err.detail || `HTTP ${resp.status}`);
+      }
       const data = await resp.json();
-      setImages(data.results || []);
+      const list = Array.isArray(data.results) ? data.results : [];
+      setImages(list.map(sanitizeImage).filter(Boolean) as AnimeImageResult[]);
     } catch (err) {
       console.error('Anime image search failed:', err);
-      alert('Anime image search failed — check console');
+      setImages([]);
+      alert(`Anime image search failed: ${err instanceof Error ? err.message : 'unknown error'}`);
     } finally {
       setLoading(false);
     }
@@ -337,12 +359,18 @@ const AnimeImagesTab: React.FC<{
   const pickRandom = async () => {
     setLoading(true);
     try {
-      const img = await fetch('/api/anime/random').then(r => r.json());
+      const resp = await fetch('/api/anime/random');
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({} as any));
+        throw new Error(err.detail || `HTTP ${resp.status}`);
+      }
+      const img = sanitizeImage(await resp.json());
+      if (!img) throw new Error('Random endpoint returned no usable image');
       setImages([img]);
       setSelectedImage(img);
     } catch (err) {
       console.error('Anime random failed:', err);
-      alert('Could not fetch random anime image');
+      alert(`Could not fetch random anime image: ${err instanceof Error ? err.message : 'unknown error'}`);
     } finally {
       setLoading(false);
     }
@@ -353,8 +381,6 @@ const AnimeImagesTab: React.FC<{
     if (!img) return;
     try {
       const form = new FormData();
-      form.append('image_url', img.url);
-      form.append('filename', img.tags[0] || 'anime');
       form.append('image_url', img.url);
       form.append('filename', img.tags[0] || 'anime');
       const dlResp = await fetch('/api/anime/download', {
@@ -407,7 +433,7 @@ const AnimeImagesTab: React.FC<{
               )}
             </div>
             <div className="anime-image-info">
-              <span className="anime-tags">{img.tags.slice(0, 3).join(', ')}</span>
+              <span className="anime-tags">{(img.tags ?? []).slice(0, 3).join(', ')}</span>
               <span className="anime-score">Score: {img.score}</span>
             </div>
             <div className="anime-image-actions">

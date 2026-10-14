@@ -535,7 +535,7 @@ async def download_asset(asset_id: int, background_tasks: BackgroundTasks):
     """
     conn = get_db()
     row = conn.execute(
-        "SELECT a.id, a.download_url, a.title, a.source_site, a.source_url "
+        "SELECT a.id, a.download_url, a.title, s.name AS source_site, a.source_url "
         "FROM assets a JOIN sites s ON a.site_id = s.id "
         "WHERE a.id = ?",
         (asset_id,),
@@ -655,7 +655,9 @@ async def anime_search(
         raise HTTPException(status_code=400, detail="Query 'q' is required")
     client = get_client()
     try:
-        images = client.search(q.strip(), limit=limit, rating=rating)
+        # search() does blocking requests I/O + rate-limit sleeps; run it in a
+        # worker thread so the event loop stays responsive.
+        images = await asyncio.to_thread(client.search, q.strip(), limit=limit, rating=rating)
         return {
             "results": [img.to_dict() for img in images],
             "count": len(images),
@@ -672,7 +674,9 @@ async def anime_random(
     """Get a single random anime image."""
     client = get_client()
     try:
-        img = client.get_random(tag=tag.strip() or None, rating=rating)
+        # get_random() does blocking requests I/O + rate-limit sleeps; run it
+        # in a worker thread so the event loop stays responsive.
+        img = await asyncio.to_thread(client.get_random, tag=tag.strip() or None, rating=rating)
         if not img:
             raise HTTPException(status_code=404, detail="No image found")
         return img.to_dict()
@@ -700,7 +704,8 @@ async def anime_download(image_url: str = Form(...), filename: str = Form(...)):
     dest = DEFAULT_BACKGROUNDS_DIR / name
 
     try:
-        resp = _http_get(image_url, timeout=60)
+        # _http_get does blocking requests I/O; run in a worker thread.
+        resp = await asyncio.to_thread(_http_get, image_url, timeout=60)
         dest.write_bytes(resp.content)
         return {
             "status": "ok",
