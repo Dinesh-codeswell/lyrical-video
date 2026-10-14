@@ -816,6 +816,341 @@
   background: rgba(131, 195, 255, 0.2);
 }
 
+/* ────────────────────────────────────────────────────────────────────────── */
+/* Bundled OFL Font Faces (self-hosted in web/public/fonts/*.ttf)            */
+/* Same TTF files are used by the Python renderer for deterministic output.  */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/Inter-400.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/Inter-700.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url("/fonts/Inter-900.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Anton";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/Anton-400.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Montserrat";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/Montserrat-400.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Montserrat";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/Montserrat-700.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Playfair Display";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/PlayfairDisplay-400.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Playfair Display";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/PlayfairDisplay-700.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Caveat";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/Caveat-400.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/JetBrainsMono-400.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/JetBrainsMono-700.ttf") format("truetype");
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* Text entrance / exit animation keyframes (spring-driven, CSS-realized)    */
+/* These mirror the web registry in src/lib/animations.ts and the Python side  */
+/* in src/render/text_animations.py.                                          */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+/* Fade + rise entrance */
+@keyframes fadeSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInLeft {
+  0% {
+    opacity: 0;
+    transform: translateX(-40px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInRight {
+  0% {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes popScaleIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes blurIn {
+  0% {
+    opacity: 0;
+    filter: blur(12px);
+  }
+  100% {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+@keyframes rotateIn {
+  0% {
+    opacity: 0;
+    transform: perspective(600px) rotateX(70deg);
+  }
+  100% {
+    opacity: 1;
+    transform: perspective(600px) rotateX(0);
+  }
+}
+
+@keyframes dropIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-60px);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes flipUp {
+  0% {
+    opacity: 0;
+    transform: perspective(600px) rotateX(90deg);
+  }
+  100% {
+    opacity: 1;
+    transform: perspective(600px) rotateX(0);
+  }
+}
+
+@keyframes fadeOutUp {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-24px);
+  }
+}
+
+@keyframes blurOut {
+  0% {
+    opacity: 1;
+    filter: blur(0);
+  }
+  100% {
+    opacity: 0;
+    filter: blur(12px);
+  }
+}
+
+@keyframes scaleOut {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+}
+
+/* Phase 1 exit animations */
+@keyframes fadeOutUpExit {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-24px);
+  }
+}
+
+@keyframes blurOutExit {
+  0% {
+    opacity: 1;
+    filter: blur(0);
+  }
+  100% {
+    opacity: 0;
+    filter: blur(10px);
+  }
+}
+
+@keyframes typewriterDeleteExit {
+  0% {
+    opacity: 1;
+    width: 100%;
+  }
+  100% {
+    opacity: 0;
+    width: 0%;
+  }
+}
+
+/* Phase 1 exit wrapper so classes can be toggled */
+.animate-exit-line {
+  overflow: hidden;
+  display: inline-block;
+}
+
+.animate-exit-line.fade-out-up-exit {
+  animation: fadeOutUpExit 0.4s ease-out both;
+}
+
+.animate-exit-line.blur-out-exit {
+  animation: blurOutExit 0.4s ease-out both;
+}
+
+.animate-exit-line.scale-out-exit {
+  animation: scaleOut 0.4s ease-out both;
+}
+
+.animate-exit-line.typewriter-delete-exit {
+  white-space: nowrap;
+  animation: typewriterDeleteExit 0.3s steps(1) both;
+}
+
+/* Word-level staggered entrance: each word animates with a delay based on its index.
+   Used when word_animation is 'scale-pop', 'slide-up', or 'blur-in'.
+   The --word-stagger delay is set inline by Dashboard.tsx. */
+.word-entrance-box {
+  display: inline-block;
+  opacity: 0;
+}
+
+.word-entrance-box.animate {
+  opacity: 1;
+}
+
+/* Bloom / glow overlay layer (compositor, z-index above lyrics). */
+.layer-bloom {
+  z-index: 35;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.layer-bloom.with-blend {
+  mix-blend-mode: var(--bloom-blend-mode, screen);
+}
+
+/* Chromatic aberration overlay: two thin offset color layers. */
+.layer-chromatic-aberration {
+  z-index: 34;
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  opacity: 0;
+  mix-blend-mode: screen;
+}
+
+.layer-chromatic-aberration .ca-red {
+  position: absolute;
+  inset: -2px 0 0 -2px;
+  background: rgba(255, 0, 0, 0.25);
+  filter: blur(2px);
+}
+
+.layer-chromatic-aberration .ca-cyan {
+  position: absolute;
+  inset: 0 -2px -2px 0;
+  background: rgba(0, 255, 255, 0.2);
+  filter: blur(2px);
+}
+
 .preview-placeholder {
   position: absolute;
   inset: 0;

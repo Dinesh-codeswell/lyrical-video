@@ -370,6 +370,12 @@ export const WebTimeline: React.FC<WebTimelineProps> = ({
       ws.zoom(zoom);
       if (isAudioMuted) ws.setMuted(true);
     });
+    ws.on('error', (err) => {
+      console.error('[WebTimeline] WaveSurfer error:', err);
+      setIsReady(false);
+      // Audio load failed — the parent Dashboard should surface this via the
+      // isReady state; we log here so devs can see it in the console.
+    });
     ws.on('timeupdate', (t) => {
       setCurrentTime(t);
       onTimeUpdateRef.current(t);

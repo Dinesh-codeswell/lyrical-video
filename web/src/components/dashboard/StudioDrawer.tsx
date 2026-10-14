@@ -1233,6 +1233,17 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
               )}
 
               {/* Transition Cards 2-Column Grid */}
+              {TRANSITIONS_CATALOG.length > 12 && (
+                <select 
+                  value={theme.active_transition} 
+                  onChange={(e) => handleChange('active_transition', e.target.value)} 
+                  className="pro-select"
+                >
+                  {TRANSITIONS_CATALOG.map((trans) => (
+                    <option key={trans.id} value={trans.id}>{trans.name}</option>
+                  ))}
+                </select>
+              )}
               <div className="transitions-cards-grid">
                 {TRANSITIONS_CATALOG
                   .filter(t => transitionCategory === 'all' || t.category === transitionCategory)

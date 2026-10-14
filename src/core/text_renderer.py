@@ -1,10 +1,20 @@
 """Text and font rendering with Pillow."""
 
+from __future__ import annotations
+
 import math
+
+from typing import TYPE_CHECKING
 
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 from src.core.theme_loader import Theme
+
+if TYPE_CHECKING:
+    # Imported only for annotations — not available at runtime on older Python builds
+    # when this module is imported before the app's call sites wire it in.
+    from src.animations.text_entrances import TextEntranceApplier
+
 from src.animations.text_entrances import draw_word_with_transform
 
 # Output resolution
