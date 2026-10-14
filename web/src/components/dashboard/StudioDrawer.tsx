@@ -1,16 +1,36 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { Theme, LyricClip } from '../../types';
-import { THEME_PRESETS, VISUAL_EFFECTS, TRANSITIONS_CATALOG } from '../../types';
+import { THEME_PRESETS, VISUAL_EFFECTS } from '../../types';
+import { BLEND_MODES, FILTER_EFFECTS, getFilterEffect } from '../../lib/filters';
+import { TRANSITIONS_CATALOG, getTransitionById, TRANSITION_DIRECTIONS } from '../../lib/transitions';
+import { ANIMATION_CATALOG, LINE_ANIMATIONS, ENTRANCE_STYLES, EXIT_STYLES, WORD_ANIMATIONS, easeOutBack } from '../../lib/animations';
+import { BUNDLED_FONTS, findBundledFont } from '../../lib/fonts';
+
+// Used for Phase 1 wiring: ensure registries are referenced so they are not dropped.
+void BLEND_MODES;
+void FILTER_EFFECTS;
+void TRANSITIONS_CATALOG;
+void ANIMATION_CATALOG;
+void LINE_ANIMATIONS;
+void ENTRANCE_STYLES;
+void EXIT_STYLES;
+void WORD_ANIMATIONS;
+void getFilterEffect;
+void getTransitionById;
+void TRANSITION_DIRECTIONS;
+void easeOutBack;
+void BUNDLED_FONTS;
+void findBundledFont;
 import { 
   FolderPlus,  Palette, Type, Wand2, Mic2, SlidersHorizontal, 
   ChevronLeft, ChevronRight, X, Smartphone, Monitor, Square, 
   AlignLeft, AlignCenter, AlignRight, Check, Sparkles, Layers,
-  Search, Sliders, Music, Download, AlertCircle, Loader2
+  Search, Sliders, Music, Download, AlertCircle, Loader2, Film, Image
 } from 'lucide-react';
 import { SongSelector } from './SongSelector';
 import './StudioDrawer.css';
 
-export type StudioTab = 'media' | 'presets' | 'transitions' | 'effects' | 'lyrics' | 'spotify' | 'text' | 'motion' | 'karaoke' | 'canvas';
+export type StudioTab = 'media' | 'presets' | 'transitions' | 'effects' | 'lyrics' | 'spotify' | 'text' | 'motion' | 'karaoke' | 'canvas' | 'assets' | 'anime';
 
 interface StudioDrawerProps {
   theme: Theme;
@@ -267,6 +287,303 @@ interface SpotifySearchState {
   downloadJobId: string | null;
   downloadStatus: { status: string; progress: number; error?: string } | null;
 }
+
+interface Asset {
+  id: number;
+  site: string;
+  title: string;
+  source_url: string;
+  download_url: string;
+  resolution: string;
+  duration: string;
+  status: string;
+  local_path: string;
+}
+
+interface AnimeImageResult {
+  url: string;
+  preview_url: string;
+  source_url: string;
+  tags: string[];
+  score: number;
+  width: number;
+  height: number;
+  backend: string;
+}
+
+const AnimeImagesTab: React.FC<{
+  onImageSelected?: (image: AnimeImageResult) => void;
+}> = ({ onImageSelected }) => {
+  const [images, setImages] = useState<AnimeImageResult[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [query, setQuery] = useState('');
+  const [selectedImage, setSelectedImage] = useState<AnimeImageResult | null>(null);
+
+  const searchImages = useCallback(async () => {
+    if (!query.trim()) return;
+    setLoading(true);
+    try {
+      const resp = await fetch(`/api/anime/search?q=${encodeURIComponent(query)}&limit=30`);
+      const data = await resp.json();
+      setImages(data.results || []);
+    } catch (err) {
+      console.error('Anime image search failed:', err);
+      alert('Anime image search failed — check console');
+    } finally {
+      setLoading(false);
+    }
+  }, [query]);
+
+  const pickRandom = async () => {
+    setLoading(true);
+    try {
+      const img = await fetch('/api/anime/random').then(r => r.json());
+      setImages([img]);
+      setSelectedImage(img);
+    } catch (err) {
+      console.error('Anime random failed:', err);
+      alert('Could not fetch random anime image');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const downloadSelected = async () => {
+    const img = selectedImage || images[0];
+    if (!img) return;
+    try {
+      const form = new FormData();
+      form.append('image_url', img.url);
+      form.append('filename', img.tags[0] || 'anime');
+      form.append('image_url', img.url);
+      form.append('filename', img.tags[0] || 'anime');
+      const dlResp = await fetch('/api/anime/download', {
+        method: 'POST',
+        body: form,
+      });
+      const data = await dlResp.json();
+      if (data.status === 'ok') {
+        onImageSelected?.(img);
+        alert(`Image saved to backgrounds: ${data.filename}`);
+      }
+    } catch (err) {
+      console.error('Download failed:', err);
+      alert('Failed to download image');
+    }
+  };
+
+  return (
+    <div className="drawer-section anime-tab-content">
+      <p className="section-instruction">
+        Search for anime images via the Nekos API to use as video backgrounds.
+      </p>
+
+      <div className="anime-search-box">
+        <input
+          type="text"
+          className="pro-input"
+          placeholder="e.g. watame, demon slayer, sparkle"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        <button className="btn-secondary" onClick={searchImages} disabled={loading || !query.trim()}>
+          {loading ? 'Searching…' : 'Search'}
+        </button>
+        <button className="btn-secondary" onClick={pickRandom} disabled={loading} style={{ marginLeft: 8 }}>
+          Random
+        </button>
+      </div>
+
+      <div className="anime-grid">
+        {images.map((img, idx) => (
+          <div
+            key={idx}
+            className={`anime-image-card ${selectedImage === img ? 'selected' : ''}`}
+          >
+            <div className="anime-image-preview">
+              <img src={img.preview_url || img.url} alt="anime preview" loading="lazy" />
+              {selectedImage === img && (
+                <div className="anime-selected-overlay">Selected</div>
+              )}
+            </div>
+            <div className="anime-image-info">
+              <span className="anime-tags">{img.tags.slice(0, 3).join(', ')}</span>
+              <span className="anime-score">Score: {img.score}</span>
+            </div>
+            <div className="anime-image-actions">
+              <button
+                className="btn-ghost small"
+                onClick={() => { setSelectedImage(img); downloadSelected(); }}
+              >
+                Use as BG
+              </button>
+            </div>
+          </div>
+        ))}
+        {images.length === 0 && !loading && (
+          <div className="anime-empty">
+            Search for anime images or click Random to get a random one.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const AssetsTab: React.FC<{
+  onAssetDownloaded?: (asset: Asset) => void;
+}> = ({ onAssetDownloaded }) => {
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [siteFilter, setSiteFilter] = useState('');
+  const [search, setSearch] = useState('');
+  const [downloadingId, setDownloadingId] = useState<number | null>(null);
+
+  const loadAssets = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (siteFilter) params.set('site', siteFilter);
+      if (search) params.set('search', search);
+      params.set('with_dl', 'true');
+      const resp = await fetch(`/api/assets?${params}`);
+      const data = await resp.json();
+      setAssets(data.assets || []);
+    } catch (err) {
+      console.error('Failed to load assets:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [siteFilter, search]);
+
+  useEffect(() => {
+    loadAssets();
+  }, [loadAssets]);
+
+  const startDownload = async (asset: Asset) => {
+    if (!asset.download_url) return;
+    setDownloadingId(asset.id);
+    try {
+      const resp = await fetch(`/api/assets/${asset.id}/download`, { method: 'POST' });
+      const data = await resp.json();
+      if (data.job_id) {
+        // Poll for completion
+        const poll = async () => {
+          const statusResp = await fetch(`/api/assets/${asset.id}/download-status?job_id=${data.job_id}`);
+          const statusData = await statusResp.json();
+          if (statusData.status === 'completed') {
+            setDownloadingId(null);
+            onAssetDownloaded?.(asset);
+            loadAssets();
+          } else if (statusData.status === 'failed') {
+            setDownloadingId(null);
+            alert(`Download failed: ${statusData.error || 'unknown'}`);
+          } else {
+            setTimeout(poll, 1000);
+          }
+        };
+        poll();
+      }
+    } catch (err) {
+      setDownloadingId(null);
+      alert('Download request failed');
+    }
+  };
+
+  const siteColors: Record<string, string> = {
+    editpacks: '#3b82f6',
+    youpro: '#8b5cf6',
+    motionvault: '#10b981',
+    animeclipsraw: '#f59e0b',
+    ninjaclips: '#ef4444',
+  };
+
+  return (
+    <div className="drawer-section assets-tab-content">
+      <p className="section-instruction">
+        Browse external clip/pack libraries. Downloaded clips are copied to your
+        backgrounds folder and available in the song import dialog.
+      </p>
+
+      <div className="control-group" style={{ marginBottom: 12 }}>
+        <input
+          type="text"
+          className="pro-input"
+          placeholder="Search clips by title…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{ width: '100%', marginBottom: 8 }}
+        />
+        <select
+          className="pro-select"
+          value={siteFilter}
+          onChange={(e) => setSiteFilter(e.target.value)}
+        >
+          <option value="">All sites</option>
+          <option value="editpacks">editpacks</option>
+          <option value="youpro">youpro</option>
+          <option value="motionvault">motionvault</option>
+          <option value="animeclipsraw">animeclipsraw</option>
+          <option value="ninjaclips">ninjaclips</option>
+        </select>
+        <button
+          className="btn-secondary"
+          onClick={loadAssets}
+          disabled={loading}
+          style={{ marginTop: 8 }}
+        >
+          {loading ? 'Loading…' : 'Refresh'}
+        </button>
+      </div>
+
+      <div className="assets-grid">
+        {assets.map((asset) => (
+          <div
+            key={asset.id}
+            className={`asset-card ${asset.status === 'downloaded' ? 'downloaded' : ''}`}
+            style={{ borderLeftColor: siteColors[asset.site] || '#6b7280' }}
+          >
+            <div className="asset-card-header">
+              <span className="asset-site" style={{ color: siteColors[asset.site] || '#6b7280' }}>
+                {asset.site}
+              </span>
+              <span className="asset-status">
+                {asset.status === 'downloaded' ? '✓ Downloaded' : asset.download_url ? 'Download available' : 'No download'}
+              </span>
+            </div>
+            <div className="asset-title">{asset.title}</div>
+            <div className="asset-meta">
+              {asset.resolution && <span>{asset.resolution}</span>}
+              {asset.duration && <span> · {asset.duration}</span>}
+            </div>
+            <div className="asset-card-actions">
+              {asset.download_url && asset.status !== 'downloaded' && (
+                <button
+                  className="btn-ghost small"
+                  onClick={() => startDownload(asset)}
+                  disabled={downloadingId === asset.id}
+                >
+                  {downloadingId === asset.id ? 'Downloading…' : 'Download'}
+                </button>
+              )}
+              {asset.status === 'downloaded' && (
+                <button
+                  className="btn-ghost small"
+                  onClick={() => window.open(`/api/assets/${asset.id}/file`, '_blank')}
+                >
+                  View
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+        {assets.length === 0 && !loading && (
+          <div className="assets-empty">No assets found matching your filters.</div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 const SpotifyTab: React.FC<{
   selectedSong: string | null;
@@ -623,6 +940,26 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
             <SlidersHorizontal size={18} />
             <span className="rail-tab-label">Canvas</span>
           </button>
+
+          <button 
+            type="button"
+            className={`rail-tab-btn ${currentTab === 'assets' && isOpen ? 'active' : ''}`}
+            onClick={() => handleSelectTab('assets')}
+            title="Clips Library — browse & download external clips"
+          >
+            <Film size={18} />
+            <span className="rail-tab-label">Assets</span>
+          </button>
+
+          <button 
+            type="button"
+            className={`rail-tab-btn ${currentTab === 'anime' && isOpen ? 'active' : ''}`}
+            onClick={() => handleSelectTab('anime')}
+            title="Anime Images — search Nekos API for backgrounds"
+          >
+            <Image size={18} />
+            <span className="rail-tab-label">Anime</span>
+          </button>
         </div>
 
         <div className="tool-rail-bottom">
@@ -690,6 +1027,12 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
               <>
                 <h3 className="drawer-title">Canvas & Layout</h3>
                 <span className="drawer-badge">{theme.aspect_ratio}</span>
+              </>
+            )}
+            {currentTab === 'assets' && (
+              <>
+                <h3 className="drawer-title">Clips Library</h3>
+                <span className="drawer-badge">Assets</span>
               </>
             )}
             {currentTab === 'spotify' && (
@@ -789,6 +1132,31 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
             <SpotifyTab 
               selectedSong={selectedSong}
               onSongSelect={onSongSelect}
+            />
+          )}
+
+          {/* TAB: CLIPS LIBRARY */}
+          {currentTab === 'assets' && (
+            <AssetsTab 
+              onAssetDownloaded={() => {
+                // Refresh backgrounds list when a clip is downloaded
+                fetch('/api/backgrounds')
+                  .then(r => r.json())
+                  .then(() => {
+                    // Forward to parent via callback if needed
+                    onClipsChange?.(clips ?? [], 'asset-downloaded');
+                  })
+                  .catch(() => {});
+              }}
+            />
+          )}
+
+          {/* TAB: ANIME IMAGES */}
+          {currentTab === 'anime' && (
+            <AnimeImagesTab 
+              onImageSelected={() => {
+                fetch('/api/backgrounds').then(() => {}).catch(() => {});
+              }}
             />
           )}
 
@@ -1232,7 +1600,7 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
           {/* TAB 3: TYPOGRAPHY & TEXT */}
           {currentTab === 'text' && (
             <div className="drawer-section text-tab-content">
-              {/* Font Family */}
+              {/* ── Font Family (bundled OFL first, then system fallbacks) ── */}
               <div className="control-group">
                 <label className="group-label">Font Family</label>
                 <select 
@@ -1240,15 +1608,92 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
                   onChange={(e) => handleChange('font_family', e.target.value)}
                   className="pro-select"
                 >
-                  <option value="Arial">Arial (Clean Sans)</option>
-                  <option value="Inter">Inter (Modern Geometric)</option>
-                  <option value="Roboto">Roboto (Android / Google)</option>
-                  <option value="JetBrains Mono">JetBrains Mono (Code/Tech)</option>
-                  <option value="Georgia">Georgia (Editorial Serif)</option>
+                  <optgroup label="Bundled (self-hosted OFL)">
+                    {BUNDLED_FONTS.map((font) => (
+                      <option key={font.family} value={font.family}>
+                        {font.label} — {font.category}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="System fallbacks">
+                    <option value="Arial">Arial (Clean Sans)</option>
+                    <option value="Roboto">Roboto (Android / Google)</option>
+                    <option value="Georgia">Georgia (Editorial Serif)</option>
+                  </optgroup>
                 </select>
+                {findBundledFont(theme.font_family) && (
+                  <span className="control-help-hint">
+                    Bundled — preview and render use the same TTF file.
+                  </span>
+                )}
               </div>
 
-              {/* Font Size */}
+              {/* ── Font Weight (only for bundled fonts that ship the weight) ── */}
+              {findBundledFont(theme.font_family) && (
+                <div className="control-group">
+                  <div className="group-header-flex">
+                    <label className="group-label">Font Weight</label>
+                    <span className="group-value-pill">{theme.font_weight}</span>
+                  </div>
+                  <div className="segmented-pill-group">
+                    {findBundledFont(theme.font_family)!.weights.map((w) => (
+                      <button
+                        key={w}
+                        type="button"
+                        className={`cat-pill-btn ${theme.font_weight === w ? 'active' : ''}`}
+                        onClick={() => handleChange('font_weight', w)}
+                      >
+                        {w}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ── Font Style ── */}
+              <div className="control-group">
+                <label className="group-label">Font Style</label>
+                <div className="segmented-pill-group">
+                  <button
+                    type="button"
+                    className={`cat-pill-btn ${theme.font_style === 'normal' ? 'active' : ''}`}
+                    onClick={() => handleChange('font_style', 'normal')}
+                  >
+                    Normal
+                  </button>
+                  <button
+                    type="button"
+                    className={`cat-pill-btn ${theme.font_style === 'italic' ? 'active' : ''}`}
+                    onClick={() => handleChange('font_style', 'italic')}
+                  >
+                    Italic
+                  </button>
+                </div>
+                {!findBundledFont(theme.font_family) && theme.font_style === 'italic' && (
+                  <span className="control-help-hint">
+                    Faux italic (browser/browser-rendered). Not in Python render.
+                  </span>
+                )}
+              </div>
+
+              {/* ── Text Transform ── */}
+              <div className="control-group">
+                <label className="group-label">Text Transform</label>
+                <div className="segmented-pill-group">
+                  {['none', 'uppercase', 'lowercase', 'capitalize'].map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      className={`cat-pill-btn ${theme.text_transform === t ? 'active' : ''}`}
+                      onClick={() => handleChange('text_transform', t as 'none' | 'uppercase' | 'lowercase' | 'capitalize')}
+                    >
+                      {t === 'none' ? 'None' : t.charAt(0).toUpperCase() + t.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* ── Font Size ── */}
               <div className="control-group">
                 <div className="group-header-flex">
                   <label className="group-label">Font Size</label>
@@ -1264,7 +1709,7 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
                 />
               </div>
 
-              {/* Alignment */}
+              {/* ── Alignment ── */}
               <div className="control-group">
                 <label className="group-label">Text Alignment</label>
                 <div className="segmented-align-buttons">
@@ -1298,7 +1743,7 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
                 </div>
               </div>
 
-              {/* Primary Text Color */}
+              {/* ── Primary Text Color ── */}
               <div className="control-group">
                 <label className="group-label">Main Text Color</label>
                 <div className="color-picker-row">
@@ -1317,7 +1762,7 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
                 </div>
               </div>
 
-              {/* Line & Letter Spacing */}
+              {/* ── Line & Letter Spacing ── */}
               <div className="control-group">
                 <div className="group-header-flex">
                   <label className="group-label">Line Spacing</label>
@@ -1350,7 +1795,7 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
                 />
               </div>
 
-              {/* Text Stroke */}
+              {/* ── Text Stroke ── */}
               <div className="control-group">
                 <div className="group-header-flex">
                   <label className="group-label">Active Stroke Width</label>
@@ -1379,6 +1824,166 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
                     className="pro-color-hex"
                   />
                 </div>
+              </div>
+
+              {/* ── Entrance Animation (per-line, independent of highlight_mode) ── */}
+              <div className="section-divider-title">
+                <Type size={13} />
+                <span>Entrance & Exit Animation</span>
+              </div>
+
+              <div className="control-group">
+                <label className="group-label">Entrance Style</label>
+                <div className="segmented-toggle-3">
+                  {(['none', 'scroll', 'fade', 'slide-left', 'slide-right', 'typewriter', 'kinetic-pop', 'pop-scale', 'blur-in', 'rotate-in', 'drop-in', 'flip-up', 'wave', 'raindrop'] as const).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      className={`toggle-option ${theme.entrance_style === s ? 'active' : ''}`}
+                      onClick={() => handleChange('entrance_style', s)}
+                    >
+                      {s === 'none' ? 'None' : s.replace('-', ' ')}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="control-group">
+                <label className="group-label">Exit Style</label>
+                <div className="segmented-toggle-3">
+                  {(['none', 'fade-out-up', 'blur-out', 'scale-out', 'typewriter-delete'] as const).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      className={`toggle-option ${theme.exit_style === s ? 'active' : ''}`}
+                      onClick={() => handleChange('exit_style', s)}
+                    >
+                      {s === 'none' ? 'None' : s.replace('-', ' ')}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="control-group">
+                <div className="group-header-flex">
+                  <label className="group-label">Word Animation</label>
+                  <span className="group-value-pill">{theme.word_animation}</span>
+                </div>
+                <div className="segmented-toggle-3">
+                  {(['none', 'scale-pop', 'slide-up', 'blur-in'] as const).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      className={`toggle-option ${theme.word_animation === s ? 'active' : ''}`}
+                      onClick={() => handleChange('word_animation', s)}
+                    >
+                      {s === 'none' ? 'Off' : s.replace('-', ' ')}
+                    </button>
+                  ))}
+                </div>
+                {theme.word_animation !== 'none' && (
+                  <div className="control-group sub-group mt-2">
+                    <div className="group-header-flex">
+                      <label className="group-label">Char Stagger (ms)</label>
+                      <span className="group-value-pill">{theme.char_stagger_ms}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="120"
+                      step="5"
+                      value={theme.char_stagger_ms}
+                      onChange={(e) => handleChange('char_stagger_ms', parseInt(e.target.value))}
+                      className="pro-range"
+                    />
+                    <span className="control-help-hint">0 = words animate as a unit; {'>'}0 = per-char wave/raindrop stagger</span>
+                  </div>
+                )}
+              </div>
+
+              {/* ── Karaoke fill + Blend mode ── */}
+              <div className="control-group">
+                <label className="group-label">Karaoke Fill</label>
+                <div className="segmented-pill-group">
+                  <button
+                    type="button"
+                    className={`cat-pill-btn ${theme.karaoke_fill === 'flat' ? 'active' : ''}`}
+                    onClick={() => handleChange('karaoke_fill', 'flat')}
+                  >
+                    Flat
+                  </button>
+                  <button
+                    type="button"
+                    className={`cat-pill-btn ${theme.karaoke_fill === 'gradient' ? 'active' : ''}`}
+                    onClick={() => handleChange('karaoke_fill', 'gradient')}
+                  >
+                    Gradient Wipe
+                  </button>
+                </div>
+              </div>
+
+              <div className="control-group">
+                <label className="group-label">Blend Mode</label>
+                <select
+                  value={theme.blend_mode}
+                  onChange={(e) => handleChange('blend_mode', e.target.value)}
+                  className="pro-select"
+                >
+                  {(['normal', 'multiply', 'screen', 'overlay', 'soft-light', 'color-dodge', 'difference'] as const).map((m) => (
+                    <option key={m} value={m}>
+                      {m.charAt(0).toUpperCase() + m.slice(1).replace('-', ' ')}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* ── Bloom + Chromatic Aberration ── */}
+              <div className="section-divider-title">
+                <Sparkles size={13} />
+                <span>Compositor Layers</span>
+              </div>
+
+              <div className="toggle-row">
+                <div>
+                  <div className="toggle-label">Bloom / Glow</div>
+                  <div className="toggle-desc">Bright-pass + blur + additive screen on highlights</div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={theme.bloom_enabled || false}
+                  onChange={(e) => handleChange('bloom_enabled', e.target.checked)}
+                  className="pro-switch"
+                />
+              </div>
+
+              {theme.bloom_enabled && (
+                <div className="control-group sub-group">
+                  <div className="group-header-flex">
+                    <label className="group-label">Bloom Intensity</label>
+                    <span className="group-value-pill">{theme.bloom_intensity || 0}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={theme.bloom_intensity || 0}
+                    onChange={(e) => handleChange('bloom_intensity', parseInt(e.target.value))}
+                    className="pro-range"
+                  />
+                </div>
+              )}
+
+              <div className="toggle-row">
+                <div>
+                  <div className="toggle-label">Chromatic Aberration</div>
+                  <div className="toggle-desc">RGB channel edge offset for edgy/retro look</div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={theme.chromatic_aberration || false}
+                  onChange={(e) => handleChange('chromatic_aberration', e.target.checked)}
+                  className="pro-switch"
+                />
               </div>
             </div>
           )}

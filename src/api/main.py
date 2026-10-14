@@ -18,6 +18,15 @@ from src.core.song_resolver import (
     THEMES_DIR,
     BACKGROUND_EXTENSIONS,
 )
+from src.core.resource_scraper import (
+    init_db,
+    iter_assets,
+    get_db,
+    upsert_asset,
+    DiscoveredAsset,
+    crawl_editpacks_source_pages,
+)
+from src.core.anime_client import AnimeImageClient, get_client
 from src.core.video_generator import generate_video
 from src.core.theme_loader import load_theme, Theme, THEME_PRESETS
 from src.core.lyrics_parser import parse_lrc_string, parse_srt_string
@@ -73,13 +82,19 @@ async def get_songs():
 
 @app.get("/api/backgrounds")
 async def get_backgrounds():
-    """List all available background files (video and static images)."""
+    """List all available background files (video and static images).
+
+    Includes:
+      - files placed in input/backgrounds/ by the user
+      - downloaded clip assets from ~/.lyric-video/assets/<site>/
+        that have been copied into input/backgrounds/ by the GUI.
+    """
     bg_files = []
     if INPUT_BACKGROUNDS_DIR.exists():
         for f in INPUT_BACKGROUNDS_DIR.iterdir():
             if f.suffix.lower() in BACKGROUND_EXTENSIONS:
                 bg_files.append(f.name)
-    return bg_files
+    return sorted(bg_files)
 
 
 @app.get("/api/lyrics/suggest")
@@ -423,6 +438,277 @@ async def download_raw(path: str):
     if not p.exists():
         raise HTTPException(status_code=404, detail="File not found")
     return FileResponse(p)
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# Assets (clips library) endpoints
+
+@app.get("/api/assets")
+async def list_assets(
+    site: str = Query("", description="Filter by site name"),
+    status: str = Query("", description="Filter by status (indexed/downloaded/failed)"),
+    with_dl: bool = Query(False, description="Only return assets with download_url"),
+    search: str = Query("", description="Search by title substring"),
+    limit: int = Query(100, description="Max results to return"),
+):
+    """List discovered assets from external clip sites.
+
+    Returns asset metadata including download_url when available.
+    Downloaded assets also include local_file (relative path for serving).
+    """
+    init_db()
+    assets = iter_assets(site=site or "", status=status or "", limit=limit)
+    out = []
+    for a in assets:
+        if search and search.lower() not in a.title.lower():
+            continue
+        if with_dl and not a.download_url:
+            continue
+        entry = {
+            "id": a.id if hasattr(a, "id") else None,
+            "site": a.source_site,
+            "title": a.title,
+            "source_url": a.source_url,
+            "category": a.category,
+            "tags": a.tags,
+            "resolution": a.resolution,
+            "duration": a.duration,
+            "download_url": a.download_url,
+            "thumbnail_url": a.thumbnail_url,
+            "views_downloads": a.views_downloads,
+            "scraped_at": a.scraped_at,
+            "status": a.status,
+            "local_path": a.local_path,
+        }
+        out.append(entry)
+    return {"assets": out, "count": len(out)}
+
+
+@app.get("/api/assets/{asset_id}/file")
+async def serve_asset_file(asset_id: int):
+    """Serve a downloaded asset file by its DB id.
+
+    Assets are stored in ~/.lyric-video/assets/<site>/<filename>.
+    This endpoint serves them for the dashboard preview player.
+    """
+    conn = get_db()
+    row = conn.execute(
+        "SELECT a.local_path, a.title, s.name as site "
+        "FROM assets a JOIN sites s ON a.site_id = s.id "
+        "WHERE a.id = ?",
+        (asset_id,),
+    ).fetchone()
+    conn.close()
+    if not row or not row["local_path"]:
+        raise HTTPException(status_code=404, detail="Asset not found or not downloaded")
+    
+    path = Path(row["local_path"])
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="File missing on disk")
+    
+    # Guess media type from extension
+    ext = path.suffix.lower()
+    media_type = {
+        ".mp4": "video/mp4",
+        ".mkv": "video/x-matroska",
+        ".mov": "video/quicktime",
+        ".avi": "video/x-msvideo",
+        ".webm": "video/webm",
+        ".mp3": "audio/mpeg",
+        ".wav": "audio/wav",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".webp": "image/webp",
+        ".gif": "image/gif",
+    }.get(ext, "application/octet-stream")
+    
+    return FileResponse(path, filename=path.name, media_type=media_type)
+
+
+@app.post("/api/assets/{asset_id}/download")
+async def download_asset(asset_id: int, background_tasks: BackgroundTasks):
+    """Download an asset from its source site into the local assets directory.
+
+    The actual download runs in a background thread so the dashboard
+    doesn't block. Returns the job_id for status polling.
+    """
+    conn = get_db()
+    row = conn.execute(
+        "SELECT a.id, a.download_url, a.title, a.source_site, a.source_url "
+        "FROM assets a JOIN sites s ON a.site_id = s.id "
+        "WHERE a.id = ?",
+        (asset_id,),
+    ).fetchone()
+    conn.close()
+    if not row:
+        raise HTTPException(status_code=404, detail="Asset not found")
+    if not row["download_url"]:
+        raise HTTPException(status_code=400, detail="No download URL available for this asset")
+
+    job_id = str(uuid.uuid4())
+    jobs[job_id] = {
+        "status": "downloading",
+        "progress": 0,
+        "type": "asset_download",
+        "asset_id": asset_id,
+        "title": row["title"],
+        "site": row["source_site"],
+    }
+
+    async def do_download():
+        try:
+            # Import here to avoid circular imports at module level
+            from src.core.download_worker import (
+                download_file,
+                _local_filename,
+                _normalize_download_url,
+                DOWNLOAD_ROOT,
+            )
+            from pathlib import Path
+            import time
+
+            url = _normalize_download_url(row["download_url"])
+            filename = _local_filename(row["source_site"], row["title"], row["download_url"])
+            dest = DOWNLOAD_ROOT / row["source_site"] / filename
+
+            jobs[job_id]["progress"] = 5
+
+            success, bytes_dl, error = download_file(
+                url, dest, timeout=120,
+                on_progress=lambda cur, total, pct: jobs[job_id].update({
+                    "progress": int(pct),
+                }),
+            )
+
+            if success:
+                # Persist the local_path back to the DB
+                conn2 = get_db()
+                conn2.execute(
+                    "UPDATE assets SET local_path = ?, status = ? WHERE id = ?",
+                    (str(dest), "downloaded", asset_id),
+                )
+                conn2.commit()
+                conn2.close()
+                jobs[job_id].update({
+                    "status": "completed",
+                    "progress": 100,
+                    "local_path": str(dest),
+                    "bytes_downloaded": bytes_dl,
+                })
+            else:
+                jobs[job_id].update({
+                    "status": "failed",
+                    "error": error or "unknown error",
+                })
+        except Exception as exc:
+            jobs[job_id].update({
+                "status": "failed",
+                "error": str(exc),
+            })
+
+    background_tasks.add_task(do_download)
+    return {"job_id": job_id, "status": "started", "asset_id": asset_id}
+
+
+@app.get("/api/assets/{asset_id}/download-status")
+async def asset_download_status(asset_id: int, job_id: str):
+    """Check status of an asset download job."""
+    if job_id not in jobs:
+        raise HTTPException(status_code=404, detail="Job not found")
+    job = jobs[job_id]
+    if job.get("type") != "asset_download" or job.get("asset_id") != asset_id:
+        raise HTTPException(status_code=400, detail="Not an asset download job")
+    return job
+
+
+@app.post("/api/assets/refresh")
+async def refresh_assets():
+    """Re-run the editpacks source page crawler to get fresh download URLs.
+
+    Signed URLs expire, so this re-crawls the source pages for fresh ones.
+    Returns the number of new/updated assets.
+    """
+    try:
+        count = crawl_editpacks_source_pages(limit=20)
+        return {
+            "status": "ok",
+            "updated": count,
+            "message": f"Refreshed {count} editpacks source pages",
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# Anime Images endpoints (Nekos API / Danbooru)
+# ──────────────────────────────────────────────────────────────────────────
+
+@app.get("/api/anime/search")
+async def anime_search(
+    q: str = Query("", description="Search tags (e.g. 'watame', 'demon slayer')"),
+    limit: int = Query(20, description="Max results to return", ge=1, le=50),
+    rating: str = Query("safe", description="Rating filter: safe, questionable, explicit"),
+):
+    """Search for anime images via Nekos API (falls back to Danbooru)."""
+    if not q.strip():
+        raise HTTPException(status_code=400, detail="Query 'q' is required")
+    client = get_client()
+    try:
+        images = client.search(q.strip(), limit=limit, rating=rating)
+        return {
+            "results": [img.to_dict() for img in images],
+            "count": len(images),
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+
+
+@app.get("/api/anime/random")
+async def anime_random(
+    tag: str = Query("", description="Optional tag filter (e.g. 'watame')"),
+    rating: str = Query("safe", description="Rating filter: safe, questionable, explicit"),
+):
+    """Get a single random anime image."""
+    client = get_client()
+    try:
+        img = client.get_random(tag=tag.strip() or None, rating=rating)
+        if not img:
+            raise HTTPException(status_code=404, detail="No image found")
+        return img.to_dict()
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+
+
+@app.post("/api/anime/download")
+async def anime_download(image_url: str = Form(...), filename: str = Form(...)):
+    """Download an anime image into input/backgrounds/.
+
+    Called by the web dashboard after the user picks an image from search results.
+    Returns the saved file path so it appears in the backgrounds list.
+    """
+    from pathlib import Path
+    from src.core.anime_client import _http_get, _ensure_dirs, DEFAULT_BACKGROUNDS_DIR
+    import uuid
+
+    ext = Path(image_url).suffix.lower() or ".jpg"
+    if ext not in (".jpg", ".jpeg", ".png", ".webp", ".gif"):
+        ext = ".jpg"
+    name = f"{filename}_{uuid.uuid4().hex[:8]}{ext}"
+    dest = DEFAULT_BACKGROUNDS_DIR / name
+
+    try:
+        resp = _http_get(image_url, timeout=60)
+        dest.write_bytes(resp.content)
+        return {
+            "status": "ok",
+            "path": str(dest.relative_to(PROJECT_ROOT)),
+            "filename": dest.name,
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 # ──────────────────────────────────────────────────────────────────────────

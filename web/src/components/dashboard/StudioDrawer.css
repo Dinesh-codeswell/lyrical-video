@@ -231,6 +231,236 @@
   height: 100%;
 }
 
+/* ────────────────────────────────────────────────────────────────────────── */
+/* Assets Tab — Clips Library
+/* ────────────────────────────────────────────────────────────────────────── */
+
+.assets-tab-content .section-instruction {
+  margin-bottom: 12px;
+}
+
+.assets-tab-content .control-group {
+  margin-bottom: 12px;
+}
+
+.assets-tab-content .pro-input,
+.assets-tab-content .pro-select {
+  width: 100%;
+}
+
+.assets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px;
+  max-height: 340px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.asset-card {
+  background: var(--nle-bg-elevated, #181a26);
+  border: 1px solid var(--nle-border, #252837);
+  border-left-width: 3px;
+  border-radius: 6px;
+  padding: 8px;
+  cursor: default;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.asset-card:hover {
+  background: var(--nle-bg-hover, #202332);
+}
+
+.asset-card.downloaded {
+  border-left-color: #10b981;
+}
+
+.asset-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.asset-site {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.asset-status {
+  font-size: 10px;
+  color: var(--nle-text-muted, #8b8fa3);
+}
+
+.asset-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--nle-text-primary, #e8eaf0);
+  margin-bottom: 4px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.asset-meta {
+  font-size: 11px;
+  color: var(--nle-text-muted, #8b8fa3);
+  margin-bottom: 6px;
+}
+
+.asset-card-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.assets-tab-content .btn-ghost.small {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: transparent;
+  border: 1px solid var(--nle-border, #252837);
+  color: var(--nle-text-secondary, #b0b5c9);
+  cursor: pointer;
+}
+
+.assets-tab-content .btn-ghost.small:hover {
+  background: var(--nle-bg-hover, #202332);
+  color: var(--nle-text-primary, #e8eaf0);
+}
+
+.assets-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: var(--nle-text-muted, #8b8fa3);
+  font-size: 13px;
+  padding: 24px 0;
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* Anime Images Tab                                                              */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+.anime-tab-content .section-instruction {
+  margin-bottom: 12px;
+}
+
+.anime-search-box {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.anime-search-box .pro-input {
+  flex: 1;
+}
+
+.anime-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.anime-image-card {
+  background: var(--nle-bg-elevated, #181a26);
+  border: 1px solid var(--nle-border, #252837);
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s;
+}
+
+.anime-image-card:hover {
+  border-color: var(--electric-blue, #00f2fe);
+  transform: scale(1.02);
+}
+
+.anime-image-card.selected {
+  border-color: var(--electric-blue, #00f2fe);
+  border-width: 2px;
+}
+
+.anime-image-preview {
+  position: relative;
+  aspect-ratio: 1;
+  overflow: hidden;
+  background: var(--nle-bg-surface, #12131b);
+}
+
+.anime-image-preview img {
+  width: 100%;
+  height: 100%;
+  objectFit: cover;
+}
+
+.anime-selected-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 242, 254, 0.2);
+  display: flex;
+  alignItems: center;
+  justifyContent: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--electric-blue, #00f2fe);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.anime-image-info {
+  padding: 6px 8px;
+  display: flex;
+  justifyContent: space-between;
+  alignItems: center;
+  font-size: 10px;
+}
+
+.anime-tags {
+  color: var(--nle-text-secondary, #b0b5c9);
+  whiteSpace: nowrap;
+  overflow: hidden;
+  textOverflow: ellipsis;
+  maxWidth: 70px;
+}
+
+.anime-score {
+  color: var(--nle-text-muted, #8b8fa3);
+}
+
+.anime-image-actions {
+  padding: 4px 8px 8px;
+  display: flex;
+  gap: 4px;
+}
+
+.anime-tab-content .btn-ghost.small {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: transparent;
+  border: 1px solid var(--nle-border, #252837);
+  color: var(--nle-text-secondary, #b0b5c9);
+  cursor: pointer;
+}
+
+.anime-tab-content .btn-ghost.small:hover {
+  background: var(--nle-bg-hover, #202332);
+  color: var(--nle-text-primary, #e8eaf0);
+}
+
+.anime-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: var(--nle-text-muted, #8b8fa3);
+  font-size: 13px;
+  padding: 24px 0;
+}
+
 .section-instruction {
   font-size: 12px;
   color: var(--silver-whisper, #acadae);

@@ -23,6 +23,7 @@ from PyQt6.QtWidgets import (
 
 from src.core.song_resolver import THEMES_DIR
 from src.gui.audio_player import AudioPlayer
+from src.gui.panels.clips_library import ClipsLibraryPanel
 from src.gui.panels.export_bar import ExportBar
 from src.gui.panels.preview_panel import PreviewPanel
 from src.gui.panels.song_selector import SongSelectorPanel
@@ -108,12 +109,21 @@ class MainWindow(QMainWindow):
         self._song_selector = SongSelectorPanel()
         self._song_selector.song_loaded.connect(self._on_song_loaded)
         outer.addWidget(self._song_selector)
+        self._clips_library = ClipsLibraryPanel()
+        self._clips_library.asset_downloaded.connect(self._on_asset_downloaded)
+        outer.addWidget(self._clips_library)
         outer.addWidget(self._build_center_splitter())
         self._theme_editor = ThemeEditorPanel()
         outer.addWidget(self._theme_editor)
 
         # Connect theme changes to preview staleness tracking (both panels now exist)
         self._theme_editor.theme_changed.connect(self._preview.on_theme_changed)
+
+        # Wire clips library: when an asset is downloaded, refresh the song
+        # selector's background list so the new file is available.
+        self._clips_library.asset_downloaded.connect(
+            self._song_selector.scan
+        )
 
         left_w = 250
         right_w = 350
@@ -363,9 +373,57 @@ class MainWindow(QMainWindow):
     def _on_save_theme(self):
         self._theme_editor.save_theme()
 
+    def _on_asset_downloaded(self, asset_id: int) -> None:
+        """Refresh the song list when a clip asset finishes downloading.
+
+        The download_worker persists the file into ~/.lyric-video/assets/<site>/,
+        but the INPUT_BACKGROUNDS_DIR is what the song selector scans for
+        background files. We copy the downloaded file there so it appears
+        in the background picker.
+        """
+        from pathlib import Path
+        from src.core.resource_scraper import get_db
+        from src.core.song_resolver import INPUT_BACKGROUNDS_DIR, BACKGROUND_EXTENSIONS
+
+        conn = get_db()
+        row = conn.execute(
+            "SELECT a.local_path, a.title, s.name as site "
+            "FROM assets a JOIN sites s ON a.site_id = s.id "
+            "WHERE a.id = ?",
+            (asset_id,),
+        ).fetchone()
+        conn.close()
+
+        if not row or not row["local_path"]:
+            return
+
+        src = Path(row["local_path"])
+        if not src.exists():
+            return
+
+        # Copy into backgrounds dir so the song selector picks it up
+        dest = INPUT_BACKGROUNDS_DIR / src.name
+        try:
+            import shutil
+            shutil.copy2(src, dest)
+            QMessageBox.information(
+                self,
+                "Asset Downloaded",
+                f"Clips asset downloaded:\n\n"
+                f"  {row['title']}\n"
+                f"  Site: {row['site']}\n"
+                f"  Saved to: {dest}\n\n"
+                f"The file is now available in the backgrounds list.",
+            )
+        except Exception as exc:
+            QMessageBox.warning(
+                self,
+                "Copy Failed",
+                f"Downloaded to {src} but could not copy to backgrounds:\n{exc}",
+            )
+
     def _on_about(self):
-        QMessageBox.about(
-            self,
+        QMessageBox.about(self,
             "About",
             "<b>Lyric Video Generator</b><br>"
             "Generate YouTube-ready 1080p lyric videos<br>"

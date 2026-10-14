@@ -15,6 +15,7 @@ from PIL import Image, ImageFilter, ImageEnhance
 from moviepy import VideoClip, VideoFileClip
 
 from src.animations.scroll import ScrollingAnimation
+from src.animations.text_entrances import TextEntranceApplier
 from src.core.audio_handler import load_audio
 from src.core.lyrics_parser import parse_lyrics
 from src.core.text_renderer import TextRenderer
@@ -286,10 +287,18 @@ def generate_video(
     # Build background frame getter (ping-pong loop) if a video was provided
     bg_frame_getter = None
     bg_cleanup = None
-    if background_path is not None:
-        print(f"Background: {background_path} (ping-pong loop, {render_w}x{render_h})")
+
+    # Resolve the effective background path: explicit arg overrides theme attr.
+    effective_bg = background_path
+    if effective_bg is None:
+        theme_bg_path = getattr(theme_obj, "background_image_path", "")
+        if theme_bg_path:
+            effective_bg = theme_bg_path
+
+    if effective_bg is not None:
+        print(f"Background: {effective_bg} (ping-pong loop, {render_w}x{render_h})")
         bg_frame_getter, bg_cleanup = _build_bg_frame_getter(
-            background_path, width=render_w, height=render_h, theme=theme_obj
+            effective_bg, width=render_w, height=render_h, theme=theme_obj
         )
 
     # Build scrolling animation over all lines
@@ -327,7 +336,13 @@ def generate_video(
             raise RenderCancelled
         actual_t = t + preview_start if preview else t
         bg = bg_frame_getter(actual_t) if bg_frame_getter is not None else None
-        result = animation.make_frame(actual_t, renderer, background=bg)
+        # Build entrance animation applier so the Python render mirrors the web preview's
+        # per-word spring-driven entrances (pop-scale, blur-in, drop-in, etc.).
+        active_idx = animation._find_active_idx(actual_t)
+        entrance_applier = TextEntranceApplier(
+            theme_obj, active_idx, animation.lines, actual_t, fps=fps
+        )
+        result = animation.make_frame(actual_t, renderer, background=bg, entrance_applier=entrance_applier)
 
         # Apply Vignette & Letterbox post-processing if enabled
         if getattr(theme_obj, "vignette_enabled", False):

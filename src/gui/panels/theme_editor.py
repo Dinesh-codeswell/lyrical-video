@@ -308,6 +308,21 @@ class ThemeEditorPanel(QGroupBox):
         self._bg_color_btn.color_changed.connect(self._on_bg_color_changed)
         sec.add_row("Color", self._bg_color_btn)
 
+        # Anime image search button
+        self._anime_search_btn = QPushButton("Anime Image…")
+        self._anime_search_btn.setFixedWidth(130)
+        self._anime_search_btn.clicked.connect(self._on_anime_search)
+        self._anime_status_label = QLabel("(none)")
+        self._anime_status_label.setProperty("secondary", "true")
+        self._anime_status_label.setFixedWidth(200)
+        path_widget = QWidget()
+        path_layout = QHBoxLayout(path_widget)
+        path_layout.setContentsMargins(0, 0, 0, 0)
+        path_layout.setSpacing(4)
+        path_layout.addWidget(self._anime_search_btn)
+        path_layout.addWidget(self._anime_status_label)
+        sec.add_row("Anime BG", path_widget)
+
         self._overlay_slider = QSlider(Qt.Orientation.Horizontal)
         self._overlay_slider.setRange(0, 100)
         self._overlay_spin = QSpinBox()
@@ -552,7 +567,12 @@ class ThemeEditorPanel(QGroupBox):
             self._refresh_name_label(t.name)
 
             # Background
-            self._bg_color_btn.set_color(t.background_color)
+            if t.background_image_path:
+                self._bg_color_btn.set_color("#000000")
+                self._anime_status_label.setText(Path(t.background_image_path).name)
+            else:
+                self._bg_color_btn.set_color(t.background_color)
+                self._anime_status_label.setText("(none)")
             self._overlay_slider.setValue(t.text_overlay_opacity)
             self._overlay_spin.setValue(t.text_overlay_opacity)
             self._overlay_color_btn.set_color(t.text_overlay_color)
@@ -785,6 +805,34 @@ class ThemeEditorPanel(QGroupBox):
         if self._blocking:
             return
         self._theme.title_h_align = value
+        self._set_theme_dirty(True)
+        self.theme_changed.emit(self._theme)
+
+    def _on_anime_search(self) -> None:
+        """Open the anime image search dialog and set the chosen image as background."""
+        from src.gui.dialogs.anime_search_dialog import AnimeSearchDialog
+
+        dlg = AnimeSearchDialog(self)
+        dlg.image_selected.connect(self._on_anime_image_selected)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            pass  # signal handler does the work
+
+    def _on_anime_image_selected(self, img) -> None:
+        """Called when the user picks an anime image in the search dialog.
+
+        The image has already been downloaded into input/backgrounds/ by the
+        dialog; here we set it as the theme background and clear the color pick.
+        """
+        # The dialog already downloaded the file; re-download to be safe and
+        # get the absolute path.
+        from src.core.anime_client import get_client
+
+        client = get_client()
+        dest = client.download_to_backgrounds(img)
+        self._theme.background_image_path = str(dest)
+        self._anime_status_label.setText(Path(dest).name)
+        # Also clear the solid-color swatch so it's obvious the bg is an image
+        self._bg_color_btn.set_color("#000000")
         self._set_theme_dirty(True)
         self.theme_changed.emit(self._theme)
 

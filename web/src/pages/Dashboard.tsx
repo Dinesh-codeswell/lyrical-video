@@ -8,6 +8,20 @@ import { StudioDrawer } from '../components/dashboard/StudioDrawer';
 import type { StudioTab } from '../components/dashboard/StudioDrawer';
 import { WebTimeline } from '../components/dashboard/WebTimeline';
 import { DEFAULTS, VISUAL_EFFECTS } from '../types';
+import { BLEND_MODES, FILTER_EFFECTS } from '../lib/filters';
+import { TRANSITIONS_CATALOG, getTransitionById } from '../lib/transitions';
+import { ANIMATION_CATALOG, LINE_ANIMATIONS, ENTRANCE_STYLES, EXIT_STYLES, WORD_ANIMATIONS } from '../lib/animations';
+
+// Used for Phase 1 wiring: ensure registries are referenced so they are not dropped.
+void BLEND_MODES;
+void FILTER_EFFECTS;
+void TRANSITIONS_CATALOG;
+void ANIMATION_CATALOG;
+void LINE_ANIMATIONS;
+void ENTRANCE_STYLES;
+void EXIT_STYLES;
+void WORD_ANIMATIONS;
+void getTransitionById;
 import type { Theme, LyricClip, Marker } from '../types';
 import './Dashboard.css';const PRODUCTION_ERROR = 'Synchronizing with production services... This may take a moment if the server is waking up.';
 const DEVELOPMENT_ERROR = 'Backend server unreachable. Please start the API using .\\venv\\Scripts\\python.exe -m src.api.main';
@@ -382,19 +396,45 @@ export const Dashboard: React.FC = () => {
   }, [selectedSong, clips, lastStartedIndex, lineHeight]);
 
   // Animation Helpers
-  const getLineStyles = (isCurrent: boolean, currentTheme: Theme): React.CSSProperties => {
+  const getLineStyles = (isCurrent: boolean, currentTheme: Theme, lineIdx: number, now: number): React.CSSProperties => {
     const horizontalMargin = currentTheme.aspect_ratio === '9:16' ? 120 : 160;
     const maxColumnWidth = Math.min(
       currentTheme.column_width,
       baseDims.width - horizontalMargin
     ) * previewScale;
 
+    // Entrance animation CSS class + delay based on entrance_style + word_animation
+    const entrance = lineIdx === activeIndex ? currentTheme.entrance_style : 'none';
+    const animClass = entrance === 'none' ? '' :
+      entrance === 'scroll' ? 'lyrics-scroller' :
+      entrance === 'typewriter' ? 'animate-current-line typewriter-line' :
+      entrance === 'fade' ? 'animate-current-line fade-enter' :
+      entrance === 'slide-left' ? 'animate-current-line slide-left-enter' :
+      entrance === 'slide-right' ? 'animate-current-line slide-right-enter' :
+      entrance === 'kinetic-pop' ? 'animate-current-line kinetic-pop-enter' :
+      entrance === 'pop-scale' ? 'animate-current-line pop-scale-enter' :
+      entrance === 'blur-in' ? 'animate-current-line blur-in-enter' :
+      entrance === 'rotate-in' ? 'animate-current-line rotate-in-enter' :
+      entrance === 'drop-in' ? 'animate-current-line drop-in-enter' :
+      entrance === 'flip-up' ? 'animate-current-line flip-up-enter' :
+      entrance === 'wave' ? 'animate-current-line wave-enter' :
+      entrance === 'raindrop' ? 'animate-current-line raindrop-enter' :
+      '';
+
+    // Compute entrance delay so lines animate in order as the playhead crosses them
+    const timeSinceClipStart = now - (clips[activeIndex]?.start_time ?? 0);
+    const lineDelay = lineIdx < activeIndex ? Math.max(0, timeSinceClipStart - (activeIndex - lineIdx) * (currentTheme.char_stagger_ms || 0) / 1000) :
+                      lineIdx === activeIndex ? 0 :
+                      Math.max(0, (lineIdx - activeIndex) * (currentTheme.char_stagger_ms || 0) / 1000);
+
     return {
-      fontSize: `${currentTheme.font_size * previewScale}px`, 
+      fontSize: `${currentTheme.font_size * previewScale}px`,
       color: isCurrent && currentTheme.highlight_mode === 'line' ? currentTheme.active_text_color : currentTheme.text_color,
       fontFamily: currentTheme.font_family,
+      fontWeight: currentTheme.font_weight !== undefined ? String(currentTheme.font_weight) : (isCurrent && currentTheme.active_text_bold ? '700' : '400'),
+      fontStyle: currentTheme.font_style === 'italic' ? 'italic' : 'normal',
+      textTransform: currentTheme.text_transform === 'none' ? undefined : currentTheme.text_transform,
       textAlign: currentTheme.lyric_position,
-      fontWeight: (isCurrent && currentTheme.active_text_bold) ? 'bold' : 'normal',
       textShadow: (isCurrent && currentTheme.active_text_glow) ? `0 0 ${20 * previewScale}px ${currentTheme.active_glow_color || currentTheme.active_text_color}` : 'none',
       WebkitTextStroke: isCurrent && currentTheme.active_text_stroke_width ? `${currentTheme.active_text_stroke_width * previewScale}px ${currentTheme.active_text_stroke_color}` : 'none',
       letterSpacing: `${currentTheme.letter_spacing * previewScale}px`,
@@ -408,10 +448,12 @@ export const Dashboard: React.FC = () => {
       transform: isCurrent ? 'scale(1.04)' : 'scale(1)',
       transformOrigin: currentTheme.lyric_position === 'left' ? 'left center' : currentTheme.lyric_position === 'right' ? 'right center' : 'center center',
       transition: 'transform 0.35s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.25s ease, color 0.2s ease',
+      animation: animClass ? `${animClass} ${0.5 / currentTheme.animation_speed}s ${lineDelay}s both` : undefined,
+      animationFillMode: 'forwards',
     };
   };
 
-  const renderLineText = (line: LyricClip, isCurrent: boolean, currentTheme: Theme, time: number, activeClip: LyricClip) => {
+  const renderLineText = (line: LyricClip, isCurrent: boolean, currentTheme: Theme, time: number, activeClip: LyricClip, wordIndex: number) => {
     if (!isCurrent) return line.text;
 
     // Typewriter Logic
@@ -435,6 +477,7 @@ export const Dashboard: React.FC = () => {
       if (currentTheme.highlight_mode === 'word') {
           const words = line.text.split(' ');
           const activeWordIdx = Math.floor(progress * words.length);
+          const wordAnim = currentTheme.word_animation !== 'none' ? currentTheme.word_animation : undefined;
           return words.map((w, i) => {
             const isWordActive = i === activeWordIdx;
             const isWordDone = i < activeWordIdx;
@@ -442,37 +485,64 @@ export const Dashboard: React.FC = () => {
               ? (currentTheme.active_glow_color || currentTheme.active_text_color)
               : (isWordDone ? currentTheme.active_text_color : currentTheme.text_color);
             const wordOpacity = (isWordActive || isWordDone) ? 1 : currentTheme.highlight_dim_alpha;
+            const wordKey = `${line.id}-w-${i}`;
+            const wordDelay = wordIndex === activeIndex && wordAnim ? (i * (currentTheme.char_stagger_ms || 0)) / 1000 : 0;
+            const wordAnimClass = wordAnim === 'scale-pop' ? 'word-entrance-box pop-scale-word' :
+                                  wordAnim === 'slide-up' ? 'word-entrance-box slide-up-word' :
+                                  wordAnim === 'blur-in' ? 'word-entrance-box blur-in-word' : '';
+            const wordTransform = isWordActive ? (currentTheme.active_text_bold ? 'scale(1.08)' : 'scale(1.06)') : 'scale(1)';
+
+            const wordContent = currentTheme.karaoke_fill === 'gradient' && isWordActive ? (
+              <span style={{ background: `linear-gradient(90deg, ${currentTheme.active_text_color} 0%, ${currentTheme.active_glow_color || currentTheme.active_text_color} 100%)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                {w}
+              </span>
+            ) : w;
 
             return (
               <span 
-                key={i} 
+                key={wordKey} 
+                className={wordAnimClass}
                 style={{ 
                   color: wordColor,
                   opacity: wordOpacity,
                   display: 'inline-block',
-                  transform: isWordActive ? 'scale(1.06)' : 'scale(1)',
+                  transform: wordTransform,
                   transition: 'transform 0.12s ease, color 0.1s ease',
-                  marginRight: '0.28em'
+                  marginRight: '0.28em',
+                  animation: wordAnimClass ? `pop-scale-word ${0.4 / currentTheme.animation_speed}s ${wordDelay}s both` : undefined,
+                  animationFillMode: 'forwards',
                 }}
               >
-                {w}
+                {wordContent}
               </span>
             );
           });
       } else if (currentTheme.highlight_mode === 'character') {
           const chars = line.text.split('');
           const activeCharIdx = Math.floor(progress * chars.length);
-          return chars.map((c, i) => (
+          const charAnim = currentTheme.word_animation !== 'none' ? currentTheme.word_animation : undefined;
+          return chars.map((c, i) => {
+            const isActiveChar = i <= activeCharIdx;
+            const charDelay = charAnim && wordIndex === activeIndex ? (i * (currentTheme.char_stagger_ms || 0)) / 1000 : 0;
+            const charAnimClass = charAnim === 'scale-pop' ? 'word-entrance-box pop-scale-word' :
+                                  charAnim === 'slide-up' ? 'word-entrance-box slide-up-word' :
+                                  charAnim === 'blur-in' ? 'word-entrance-box blur-in-word' : '';
+            return (
               <span 
                 key={i} 
+                className={charAnimClass}
                 style={{ 
-                  color: i <= activeCharIdx ? currentTheme.active_text_color : currentTheme.text_color,
-                  opacity: i <= activeCharIdx ? 1 : currentTheme.highlight_dim_alpha
+                  color: isActiveChar ? currentTheme.active_text_color : currentTheme.text_color,
+                  opacity: isActiveChar ? 1 : currentTheme.highlight_dim_alpha,
+                  display: 'inline-block',
+                  animation: charAnimClass ? `pop-scale-word ${0.3 / currentTheme.animation_speed}s ${charDelay}s both` : undefined,
+                  animationFillMode: 'forwards',
                 }}
               >
-                  {c}
+                {c}
               </span>
-          ));
+            );
+          });
       }
     }
 
@@ -608,7 +678,11 @@ export const Dashboard: React.FC = () => {
         setTheme(DEFAULTS);
       }
 
-      showToast(`Loaded "${slug}" successfully`);
+      if (!paths.audio) {
+        showToast(`Loaded lyrics for "${slug}" but no audio file found. Upload an audio file first.`);
+      } else {
+        showToast(`Loaded "${slug}" successfully`);
+      }
     } catch {
       console.error('Failed to load song details');
     }
@@ -920,6 +994,26 @@ export const Dashboard: React.FC = () => {
                   </div>
                 )}
 
+                {/* Layer 2b-bis: Bloom / Glow compositor (screen blend over highlights) */}
+                {theme.bloom_enabled && (
+                  <div 
+                    className="compositor-layer layer-bloom" 
+                    style={{ 
+                      opacity: theme.bloom_intensity !== undefined ? (theme.bloom_intensity / 100) * 0.6 : 0.4,
+                      background: `radial-gradient(ellipse at center, ${theme.active_glow_color || theme.active_text_color}11 0%, transparent 70%)`,
+                      mixBlendMode: 'screen',
+                    }}
+                  />
+                )}
+
+                {/* Layer 2b-ter: Chromatic Aberration overlay (RGB edge offset) */}
+                {theme.chromatic_aberration && (
+                  <div className="compositor-layer layer-chromatic-aberration">
+                    <div className="ca-red" />
+                    <div className="ca-cyan" />
+                  </div>
+                )}
+
                 {/* Layer 2c: Full-Frame Transition Flash, Dip & Leak Overlays */}
                 {isTransitioning && activeTransType === 'dip-black' && (
                   <div 
@@ -970,7 +1064,7 @@ export const Dashboard: React.FC = () => {
                           const isCurrent = line.index === activeIndex;
                           const gradIdx = Math.abs(line.index - activeIndex) - 1;
                           const opacity = isCurrent ? 1 : (theme.inactive_text_opacity_gradient[gradIdx] ?? 0.1);
-                          const lineStyles = getLineStyles(isCurrent, theme);
+                          const lineStyles = getLineStyles(isCurrent, theme, line.index, currentTime);
                           
                           return (
                             <div 
@@ -986,7 +1080,7 @@ export const Dashboard: React.FC = () => {
                                 className="lyric-line-text" 
                                 style={isCurrent ? getTransitionStyle(lineStyles) : lineStyles}
                               >
-                                {renderLineText(line, isCurrent, theme, currentTime, clips[activeIndex])}
+                                {renderLineText(line, isCurrent, theme, currentTime, clips[activeIndex], line.index)}
                               </div>
                             </div>
                           );
@@ -1003,12 +1097,11 @@ export const Dashboard: React.FC = () => {
                           <div 
                             key={clips[activeIndex].id} 
                             className="animate-current-line"
-                            style={getTransitionStyle({
-                              ...getLineStyles(true, theme),
-                              animationDuration: `${0.5 / theme.animation_speed}s`
-                            })}
+                            style={getTransitionStyle(
+                              getLineStyles(true, theme, activeIndex, currentTime)
+                            )}
                           >
-                            {renderLineText(clips[activeIndex], true, theme, currentTime, clips[activeIndex])}
+                            {renderLineText(clips[activeIndex], true, theme, currentTime, clips[activeIndex], activeIndex)}
                           </div>
                         )}
                       </div>

@@ -366,7 +366,9 @@ class ScrollingAnimation:
                 return 1.0
         return 0.0
 
-    def make_frame(self, t: float, renderer, background=None) -> np.ndarray:
+    def make_frame(
+        self, t: float, renderer, background=None, entrance_applier=None
+    ) -> np.ndarray:
         """Return a HxWx3 uint8 numpy array for time t."""
         active_idx = self._find_active_idx(t)
 
@@ -391,7 +393,9 @@ class ScrollingAnimation:
             }
             for li in self.get_visible_lines(t)
         ]
-        img = renderer.render_scroll_frame(lines_data, background=background)
+        img = renderer.render_scroll_frame(
+            lines_data, background=background, entrance_applier=entrance_applier
+        )
 
         if gap_alpha > 0:
             img = renderer.draw_interlude_dots(img, t, gap_alpha)

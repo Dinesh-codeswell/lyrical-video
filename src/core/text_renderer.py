@@ -2,9 +2,10 @@
 
 import math
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 from src.core.theme_loader import Theme
+from src.animations.text_entrances import draw_word_with_transform
 
 # Output resolution
 WIDTH = 1920
@@ -176,7 +177,12 @@ class TextRenderer:
 
         return Image.alpha_composite(img, txt_layer)
 
-    def render_scroll_frame(self, lines_data: list[dict], background: Image.Image | None = None) -> Image.Image:
+    def render_scroll_frame(
+        self,
+        lines_data: list[dict],
+        background: Image.Image | None = None,
+        entrance_applier: "TextEntranceApplier" | None = None,
+    ) -> Image.Image:
         """Render multiple lyric lines for the scrolling view.
 
         Args:
@@ -206,7 +212,7 @@ class TextRenderer:
         title_layout = self._get_h_layout_for(self.theme.title_h_align)
         highlight_mode = self.theme.highlight_mode
 
-        for line_data in lines_data:
+        for line_idx, line_data in enumerate(lines_data):
             text = line_data.get("text", "")
             screen_y = line_data["screen_y"]
             alpha = line_data["alpha"]
@@ -214,12 +220,17 @@ class TextRenderer:
             if text == "__LOGO__":
                 img = self._composite_logo(img, screen_y, alpha)
                 continue
+
             if not text:
                 continue
-
+            
             is_active = line_data.get("is_active", False)
             is_title = line_data.get("is_title", False)
+            # Entrance transforms are only applied to the currently-active line;
+            # non-active lines keep their scroll/fade alpha and are rendered normally.
+            effective_applier = entrance_applier if is_active else None
             highlight_progress = line_data.get("highlight_progress", 0.0)
+
 
             x, anchor, align, col_w = title_layout if is_title else default_layout
             font = self._get_font(is_active)
@@ -240,8 +251,9 @@ class TextRenderer:
                         fill=glow_color, anchor=anchor, align=align,
                     )
 
-            # Shadow
-            if self.theme.text_shadow:
+            # Shadow — only when entrance transforms are NOT being applied to this line
+            # (entrance lines draw their own shadow as part of the per-word transform path).
+            if self.theme.text_shadow and entrance_applier is None:
                 sx, sy = self.theme.text_shadow_offset
                 shadow_color = self._hex_to_rgba(self.theme.text_shadow_color, a)
                 draw.multiline_text(
@@ -259,10 +271,17 @@ class TextRenderer:
 
             # Main text — use token-level highlighting for active line in word/char mode
             if is_active and highlight_mode in ("word", "character"):
-                self._render_highlighted_tokens(
-                    draw, wrapped, y, alpha, highlight_progress, highlight_mode, font,
-                    stroke_width=stroke_width, stroke_fill=stroke_fill,
-                )
+                if effective_applier is not None:
+                    self._render_entrance_tokens(
+                        draw, wrapped, y, alpha, highlight_mode, font,
+                        effective_applier, line_idx=line_idx,
+                        stroke_width=stroke_width, stroke_fill=stroke_fill,
+                    )
+                else:
+                    self._render_highlighted_tokens(
+                        draw, wrapped, y, alpha, highlight_progress, highlight_mode, font,
+                        stroke_width=stroke_width, stroke_fill=stroke_fill,
+                    )
             else:
                 color = self.theme.effective_active_text_color if is_active else self.theme.text_color
                 text_color = self._hex_to_rgba(color, a)
@@ -432,19 +451,143 @@ class TextRenderer:
                 x_cursor += token_width
                 token_idx += 1
 
+    def _render_entrance_tokens(
+        self,
+        draw: ImageDraw.ImageDraw,
+        wrapped_text: str,
+        y: int,
+        alpha: float,
+        mode: str,
+        font: ImageFont.FreeTypeFont | None,
+        entrance_applier: "TextEntranceApplier",
+        line_idx: int,
+        stroke_width: int = 0,
+        stroke_fill: tuple | None = None,
+    ) -> None:
+        """Render text with per-word/per-char entrance transforms.
+
+        Uses ``entrance_applier.word_transforms`` to get per-word transforms
+        (scale, dy, blur, opacity) and ``draw_word_with_transform`` to draw.
+
+        Args:
+            draw: PIL ImageDraw for the current text layer.
+            wrapped_text: Line text, possibly with \\n.
+            y: Vertical center of the text block.
+            alpha: Overall line opacity.
+            mode: ``"word"`` or ``"character"``.
+            font: Font to use.
+            entrance_applier: Applier that computes per-word transforms at the current t.
+            line_idx: Index of this line in the visible lines list.
+        """
+        if font is None:
+            font = self.font
+
+        display_lines = wrapped_text.split("\n")
+        n_lines = len(display_lines)
+        pos = self.theme.lyric_position
+
+        a_full = int(alpha * 255)
+        color_full = self._hex_to_rgba(self.theme.effective_active_text_color, a_full)
+
+        # Font metrics for vertical positioning.
+        try:
+            ascent, descent = font.getmetrics()
+        except AttributeError:
+            ascent = self.theme.font_size
+            descent = int(self.theme.font_size * 0.2)
+        char_height = ascent + descent
+        spacing = 4
+        line_h = char_height + spacing
+        total_block_height = n_lines * char_height + max(0, n_lines - 1) * spacing
+        block_top = y - total_block_height / 2.0
+
+        for i, display_line in enumerate(display_lines):
+            if not display_line:
+                continue
+
+            line_center_y = block_top + char_height / 2.0 + i * line_h
+
+            # Get per-word transforms for this line.
+            transforms = entrance_applier.word_transforms(line_idx, display_line)
+            if not transforms:
+                # Fallback: draw the line normally.
+                draw.multiline_text(
+                    (self._get_x_for_pos(pos, display_line, font), line_center_y),
+                    display_line, font=font,
+                    fill=color_full, anchor="lm", align="left",
+                    stroke_width=stroke_width, stroke_fill=stroke_fill,
+                )
+                continue
+
+            # Starting x for this line.
+            x_cursor = self._get_x_for_pos_static(
+                pos, display_line, font, self.column_padding, self.width
+            )
+
+            for tr in transforms:
+                word = tr["word"]
+                draw_word_with_transform(
+                    draw, word, x_cursor, line_center_y, font, tr,
+                    fill=color_full,
+                    stroke_width=stroke_width,
+                    stroke_fill=stroke_fill,
+                    anchor="lm",
+                )
+                try:
+                    w = font.getlength(word) * tr.get("scale", 1.0)
+                except AttributeError:
+                    w, _ = font.getsize(word)  # type: ignore[attr-defined]
+                    w = w * tr.get("scale", 1.0)
+                x_cursor += w + (4 if mode == "word" else 0)  # word spacing
+
+    @staticmethod
+    def _get_x_for_pos_static(pos: str, text: str, font: ImageFont.FreeTypeFont, column_padding: int, width: int) -> float:
+        """Return the x cursor for a single line at the given lyric_position.
+
+        Static variant used by _render_entrance_tokens (which only needs the per-line cursor,
+        not self).
+        """
+        try:
+            line_width = font.getlength(text)
+        except AttributeError:
+            line_width, _ = font.getsize(text)  # type: ignore[attr-defined]
+
+        if pos == "left":
+            return float(column_padding)
+        elif pos == "right":
+            return float(width - column_padding - line_width)
+        else:  # center
+            return width / 2.0 - line_width / 2.0
+
+    def _get_x_for_pos(self, pos: str, text: str, font: ImageFont.FreeTypeFont) -> float:
+        """Return the x cursor for a single line at the theme's lyric_position."""
+        return self._get_x_for_pos_static(pos, text, font, self.column_padding, self.width)
+
     def _get_horizontal_layout(self) -> tuple[int, str, str, int]:
         """Return (x, anchor, align, col_w) based on theme lyric_position."""
         return self._get_h_layout_for(self.theme.lyric_position)
 
+    @staticmethod
+    def _get_h_layout_for_static(
+        pos: str, theme: Theme, column_padding: int, width: int
+    ) -> tuple[int, str, str, int]:
+        """Return (x, anchor, align, col_w) for the given position string.
+
+        Static variant used by _render_entrance_tokens.
+        """
+        col_w = min(theme.column_width, width - 2 * column_padding)
+        if pos == "left":
+            return column_padding, "lm", "left", col_w
+        elif pos == "right":
+            return width - column_padding, "rm", "right", col_w
+        else:  # center (default)
+            return width // 2, "mm", "center", col_w
+
     def _get_h_layout_for(self, pos: str) -> tuple[int, str, str, int]:
         """Return (x, anchor, align, col_w) for the given position string."""
-        col_w = min(self.theme.column_width, self.width - 2 * self.column_padding)
-        if pos == "left":
-            return self.column_padding, "lm", "left", col_w
-        elif pos == "right":
-            return self.width - self.column_padding, "rm", "right", col_w
-        else:  # center (default)
-            return self.width // 2, "mm", "center", col_w
+        return self._get_h_layout_for_static(
+            pos, self.theme, self.column_padding, self.width
+        )
 
     def _wrap_text(self, text: str, max_px: int, font=None) -> str:
         """Wrap text so no line exceeds max_px pixels wide."""

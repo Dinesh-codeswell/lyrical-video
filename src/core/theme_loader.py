@@ -26,6 +26,25 @@ DEFAULTS = {
     "text_overlay_color": "#000000",
     "aspect_ratio": "16:9",
     "animation_style": "scroll",
+    # Typography extensions (Phase 1)
+    "font_weight": 400,
+    "font_style": "normal",
+    "text_transform": "none",
+    # Text entrance / exit animation (per-line granularity, independent of highlight_mode)
+    "entrance_style": "scroll",
+    "exit_style": "fade-out-up",
+    "word_animation": "none",
+    "char_stagger_ms": 0,
+    "spring_damping": 18,
+    "spring_stiffness": 120,
+    "spring_mass": 1,
+    "karaoke_fill": "flat",
+    "blend_mode": "normal",
+    "bloom_enabled": False,
+    "bloom_intensity": 0,
+    "chromatic_aberration": False,
+    "camera_shake": False,
+    "beat_punch": False,
     # Kept for backward compatibility
     "text_position": "center",
     "text_shadow": False,
@@ -65,6 +84,14 @@ THEME_PRESETS = {
         "active_text_stroke_color": "#6A1E22",
         "active_text_stroke_width": 3,
         "font_family": "Arial",
+        "font_weight": 400,
+        "font_style": "normal",
+        "text_transform": "none",
+        "entrance_style": "scroll",
+        "exit_style": "fade-out-up",
+        "word_animation": "none",
+        "karaoke_fill": "flat",
+        "blend_mode": "normal",
         "font_size": 72,
         "line_spacing": 1.5,
         "lyric_position": "center",
@@ -84,7 +111,18 @@ THEME_PRESETS = {
         "active_glow_color": "#00f3ff",
         "active_text_stroke_color": "#00f3ff",
         "active_text_stroke_width": 4,
-        "font_family": "Arial",
+        "font_family": "Anton",
+        "font_weight": 400,
+        "font_style": "normal",
+        "text_transform": "uppercase",
+        "entrance_style": "pop-scale",
+        "exit_style": "scale-out",
+        "word_animation": "scale-pop",
+        "karaoke_fill": "gradient",
+        "blend_mode": "screen",
+        "bloom_enabled": True,
+        "bloom_intensity": 60,
+        "chromatic_aberration": True,
         "font_size": 76,
         "line_spacing": 1.6,
         "lyric_position": "center",
@@ -104,7 +142,15 @@ THEME_PRESETS = {
         "active_glow_color": None,
         "active_text_stroke_color": "#000000",
         "active_text_stroke_width": 0,
-        "font_family": "Arial",
+        "font_family": "Inter",
+        "font_weight": 400,
+        "font_style": "normal",
+        "text_transform": "uppercase",
+        "entrance_style": "fade",
+        "exit_style": "fade-out-up",
+        "word_animation": "none",
+        "karaoke_fill": "gradient",
+        "blend_mode": "normal",
         "font_size": 72,
         "line_spacing": 1.5,
         "lyric_position": "left",
@@ -124,7 +170,15 @@ THEME_PRESETS = {
         "active_glow_color": "#f97316",
         "active_text_stroke_color": "#831843",
         "active_text_stroke_width": 2,
-        "font_family": "Arial",
+        "font_family": "Playfair Display",
+        "font_weight": 400,
+        "font_style": "normal",
+        "text_transform": "none",
+        "entrance_style": "fade",
+        "exit_style": "fade-out-up",
+        "word_animation": "none",
+        "karaoke_fill": "gradient",
+        "blend_mode": "normal",
         "font_size": 74,
         "line_spacing": 1.5,
         "lyric_position": "center",
@@ -144,7 +198,21 @@ THEME_PRESETS = {
         "active_glow_color": "#dc2626",
         "active_text_stroke_color": "#450a0a",
         "active_text_stroke_width": 4,
-        "font_family": "Arial",
+        "font_family": "Anton",
+        "font_weight": 400,
+        "font_style": "normal",
+        "text_transform": "uppercase",
+        "entrance_style": "drop-in",
+        "exit_style": "scale-out",
+        "word_animation": "scale-pop",
+        "char_stagger_ms": 30,
+        "karaoke_fill": "flat",
+        "blend_mode": "normal",
+        "bloom_enabled": True,
+        "bloom_intensity": 40,
+        "chromatic_aberration": True,
+        "camera_shake": True,
+        "beat_punch": True,
         "font_size": 80,
         "line_spacing": 1.4,
         "lyric_position": "center",
@@ -164,7 +232,15 @@ THEME_PRESETS = {
         "active_glow_color": "#4ade80",
         "active_text_stroke_color": "#052e16",
         "active_text_stroke_width": 2,
-        "font_family": "Arial",
+        "font_family": "JetBrains Mono",
+        "font_weight": 400,
+        "font_style": "normal",
+        "text_transform": "none",
+        "entrance_style": "typewriter",
+        "exit_style": "typewriter-delete",
+        "word_animation": "none",
+        "karaoke_fill": "flat",
+        "blend_mode": "normal",
         "font_size": 70,
         "line_spacing": 1.5,
         "lyric_position": "left",
@@ -215,11 +291,30 @@ class Theme:
     interlude_dot_color: str | None = None
     active_filter: str = "none"
     background_blur: int = 0
+    background_image_path: str = ""
     vignette_enabled: bool = False
     letterbox_bars: str = "none"
     letterbox_color: str = "#000000"
     active_transition: str = "crossfade"
     transition_duration: float = 0.4
+    # Typography extensions (Phase 1)
+    font_weight: int = 400
+    font_style: str = "normal"
+    text_transform: str = "none"
+    entrance_style: str = "scroll"
+    exit_style: str = "fade-out-up"
+    word_animation: str = "none"
+    char_stagger_ms: int = 0
+    spring_damping: int = 18
+    spring_stiffness: int = 120
+    spring_mass: int = 1
+    karaoke_fill: str = "flat"
+    blend_mode: str = "normal"
+    bloom_enabled: bool = False
+    bloom_intensity: int = 0
+    chromatic_aberration: bool = False
+    camera_shake: bool = False
+    beat_punch: bool = False
     wave_enabled: bool = False
     wave_speed: float = 1.0
     wave_amplitude: float = 15.0
@@ -367,6 +462,24 @@ def load_theme(filepath: str | Path | None = None) -> Theme:
             logo_h_align=DEFAULTS["logo_h_align"],
             title_h_align=DEFAULTS["title_h_align"],
             interlude_dot_color=DEFAULTS["interlude_dot_color"],
+            font_weight=DEFAULTS["font_weight"],
+            font_style=DEFAULTS["font_style"],
+            text_transform=DEFAULTS["text_transform"],
+            entrance_style=DEFAULTS["entrance_style"],
+            exit_style=DEFAULTS["exit_style"],
+            word_animation=DEFAULTS["word_animation"],
+            char_stagger_ms=DEFAULTS["char_stagger_ms"],
+            spring_damping=DEFAULTS["spring_damping"],
+            spring_stiffness=DEFAULTS["spring_stiffness"],
+            spring_mass=DEFAULTS["spring_mass"],
+            karaoke_fill=DEFAULTS["karaoke_fill"],
+            blend_mode=DEFAULTS["blend_mode"],
+            bloom_enabled=DEFAULTS["bloom_enabled"],
+            bloom_intensity=DEFAULTS["bloom_intensity"],
+            chromatic_aberration=DEFAULTS["chromatic_aberration"],
+            camera_shake=DEFAULTS["camera_shake"],
+            beat_punch=DEFAULTS["beat_punch"],
+            background_image_path="",
         )
 
     filepath = Path(filepath)
@@ -418,10 +531,27 @@ def load_theme(filepath: str | Path | None = None) -> Theme:
         logo_width=int(merged.get("logo_width", 400)),
         logo_h_align=str(merged.get("logo_h_align", "center")),
         title_h_align=str(merged.get("title_h_align", "center")),
-        interlude_dot_color=merged.get("interlude_dot_color") or None,
-        active_filter=str(merged.get("active_filter", "none")),
+        interlude_dot_color=merged.get("interlude_dot_color") or None,            active_filter=str(merged.get("active_filter", "none")),
         background_blur=int(merged.get("background_blur", 0)),
+        background_image_path=str(merged.get("background_image_path", "") or ""),
         vignette_enabled=bool(merged.get("vignette_enabled", False)),
         letterbox_bars=str(merged.get("letterbox_bars", "none")),
         letterbox_color=str(merged.get("letterbox_color", "#000000")),
+        font_weight=int(merged.get("font_weight", 400)),
+        font_style=str(merged.get("font_style", "normal")),
+        text_transform=str(merged.get("text_transform", "none")),
+        entrance_style=str(merged.get("entrance_style", "scroll")),
+        exit_style=str(merged.get("exit_style", "fade-out-up")),
+        word_animation=str(merged.get("word_animation", "none")),
+        char_stagger_ms=int(merged.get("char_stagger_ms", 0)),
+        spring_damping=int(merged.get("spring_damping", 18)),
+        spring_stiffness=int(merged.get("spring_stiffness", 120)),
+        spring_mass=int(merged.get("spring_mass", 1)),
+        karaoke_fill=str(merged.get("karaoke_fill", "flat")),
+        blend_mode=str(merged.get("blend_mode", "normal")),
+        bloom_enabled=bool(merged.get("bloom_enabled", False)),
+        bloom_intensity=int(merged.get("bloom_intensity", 0)),
+        chromatic_aberration=bool(merged.get("chromatic_aberration", False)),
+        camera_shake=bool(merged.get("camera_shake", False)),
+        beat_punch=bool(merged.get("beat_punch", False)),
     )
