@@ -31,6 +31,27 @@ export interface Theme {
   aspect_ratio: '16:9' | '9:16' | '1:1' | '4:5';
   fps: 24 | 30 | 60;
 
+  // Typography extensions (Phase 1)
+  font_weight: number; // 400, 700, 900 — only meaningful for bundled fonts that ship those weights
+  font_style: 'normal' | 'italic';
+  text_transform: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
+
+  // Text entrance / exit animation (per-line granularity, independent of highlight_mode)
+  entrance_style: TextEntranceStyle;
+  exit_style: TextExitStyle;
+  word_animation: WordAnimationStyle;
+  char_stagger_ms: number; // 0 = no stagger; used when word_animation enables per-char wave/raindrop
+  spring_damping: number; // critically-damped spring: damping coefficient
+  spring_stiffness: number; // spring stiffness (higher = snappier)
+  spring_mass: number; // effective mass
+  karaoke_fill: 'flat' | 'gradient';
+  blend_mode: BlendMode;
+  bloom_enabled: boolean;
+  bloom_intensity: number; // 0-100
+  chromatic_aberration: boolean;
+  camera_shake: boolean;
+  beat_punch: boolean;
+
   // Visual Effects & Open-Source Shaders
   active_filter: VideoFilterType;
   filter_intensity: number; // 0 to 100
@@ -54,6 +75,52 @@ export interface Theme {
   chroma_key_color: string;
   chroma_key_fuzz: number; // 10 to 80
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Text animation catalog (mirrors FilmCraft's EffectDef-style registry)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Per-line entrance animation. Independent of highlight_mode (which controls karaoke highlight granularity). */
+export type TextEntranceStyle =
+  | 'none'
+  | 'scroll'
+  | 'typewriter'
+  | 'fade'
+  | 'slide-left'
+  | 'slide-right'
+  | 'kinetic-pop'
+  | 'pop-scale'
+  | 'blur-in'
+  | 'rotate-in'
+  | 'drop-in'
+  | 'wave'
+  | 'raindrop'
+  | 'flip-up';
+/** Per-line exit animation. Applies when a line is being left behind by the playhead. */
+export type TextExitStyle =
+  | 'none'
+  | 'fade-out-up'
+  | 'blur-out'
+  | 'scale-out'
+  | 'typewriter-delete';
+/** Granularity + style for word-level animation during entrance. */
+export type WordAnimationStyle =
+  | 'none'
+  | 'scale-pop'
+  | 'slide-up'
+  | 'blur-in';
+/** Blend mode for background/overlay compositing. */
+export type BlendMode =
+  | 'normal'
+  | 'multiply'
+  | 'screen'
+  | 'overlay'
+  | 'soft-light'
+  | 'color-dodge'
+  | 'difference';
+// ─────────────────────────────────────────────────────────────────────────────
+// Existing transition catalog (unchanged)
+// ─────────────────────────────────────────────────────────────────────────────
 
 export type TransitionType =
   | 'none'
@@ -218,6 +285,11 @@ export interface LyricClip {
   text: string;
   transition?: TransitionType;
   transition_duration?: number;
+  // Per-line entrance/exit animation overrides (Phase 1). When omitted, the theme-level
+  // entrance_style / exit_style is used.
+  entrance_style?: TextEntranceStyle;
+  exit_style?: TextExitStyle;
+  word_animation?: WordAnimationStyle;
 }
 
 export interface Marker {
@@ -269,6 +341,27 @@ export const DEFAULTS: Theme = {
   // Transitions System
   active_transition: "crossfade",
   transition_duration: 0.4,
+
+  // Typography extensions (Phase 1)
+  font_weight: 400,
+  font_style: 'normal',
+  text_transform: 'none',
+
+  // Text entrance / exit animation (per-line granularity, independent of highlight_mode)
+  entrance_style: 'scroll',
+  exit_style: 'fade-out-up',
+  word_animation: 'none',
+  char_stagger_ms: 0,
+  spring_damping: 18,
+  spring_stiffness: 120,
+  spring_mass: 1,
+  karaoke_fill: 'flat',
+  blend_mode: 'normal',
+  bloom_enabled: false,
+  bloom_intensity: 0,
+  chromatic_aberration: false,
+  camera_shake: false,
+  beat_punch: false,
 
   // OpenShot-Inspired Advanced VFX Engine (Phase 2)
   background_blur: 0,
@@ -355,11 +448,19 @@ export const THEME_PRESETS: ThemePreset[] = [
       active_text_stroke_color: "#000000",
       active_text_stroke_width: 0,
       font_family: "Inter",
+      font_weight: 400,
+      font_style: "normal",
+      text_transform: "uppercase",
       font_size: 72,
       line_spacing: 1.5,
       lyric_position: "left",
       text_overlay_opacity: 0,
       text_overlay_color: "#000000",
+      entrance_style: "fade",
+      exit_style: "fade-out-up",
+      word_animation: "none",
+      karaoke_fill: "gradient",
+      blend_mode: "normal",
     }
   },
   {
@@ -424,11 +525,19 @@ export const THEME_PRESETS: ThemePreset[] = [
       active_text_stroke_color: "#052e16",
       active_text_stroke_width: 2,
       font_family: "JetBrains Mono",
+      font_weight: 400,
+      font_style: "normal",
+      text_transform: "none",
       font_size: 70,
       line_spacing: 1.5,
       lyric_position: "left",
       text_overlay_opacity: 15,
       text_overlay_color: "#020a05",
+      entrance_style: "typewriter",
+      exit_style: "typewriter-delete",
+      word_animation: "none",
+      karaoke_fill: "flat",
+      blend_mode: "normal",
     }
   },
 ];
