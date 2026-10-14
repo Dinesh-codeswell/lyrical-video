@@ -13,8 +13,11 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import re
+import requests
 import shutil
 import sys
+import threading
 from pathlib import Path
 from typing import Any, Callable, Optional, Tuple
 
@@ -22,41 +25,41 @@ logger = logging.getLogger(__name__)
 
 # Optional import - spotDL may not be installed
 # We check at runtime rather than import time to allow graceful degradation
+# NOTE: probe state lives in _SPOTDL_MODULES (dict = loaded, False = failed,
+# None = not probed yet). Do NOT use the SPOTDL_AVAILABLE global for logic —
+# writing it from inside _check_spotdl_available() defeats mock.patch targets
+# and made batch test runs order-dependent.
 SPOTDL_AVAILABLE = False
 _SPOTDL_MODULES = None
 
 def _check_spotdl_available() -> bool:
-    """Check if spotDL is available at runtime."""
-    global _SPOTDL_MODULES, SPOTDL_AVAILABLE
-    
-    if SPOTDL_AVAILABLE:
+    """Check if spotDL is available at runtime (cached, order-independent)."""
+    global _SPOTDL_MODULES
+
+    if isinstance(_SPOTDL_MODULES, dict):
         return True
-    
-    if _SPOTDL_MODULES is not None:
-        return SPOTDL_AVAILABLE
-    
+    if _SPOTDL_MODULES is False:
+        return False
+
     try:
         from spotdl.download.downloader import Downloader
         from spotdl.types.song import Song
         from spotdl.utils.search import get_search_results
-        
+
         _SPOTDL_MODULES = {
             'Downloader': Downloader,
             'Song': Song,
             'get_search_results': get_search_results,
         }
-        SPOTDL_AVAILABLE = True
         logger.info("spotDL successfully loaded")
         return True
     except ImportError as e:
         logger.debug(f"spotDL import check failed: {e}")
         _SPOTDL_MODULES = False
-        SPOTDL_AVAILABLE = False
         return False
     except Exception as e:
         logger.warning(f"spotDL loaded but initialization error: {e}")
         _SPOTDL_MODULES = False
-        SPOTDL_AVAILABLE = False
         return False
 
 
@@ -97,27 +100,176 @@ def _ensure_spotify_client() -> None:
             "SPOTIFY_CLIENT_SECRET", SPOTIFY_OPTIONS["client_secret"]
         ),
         user_auth=False,
+        # Official Spotify Web API client (spotipy client-credentials flow).
+        # The default "free" client mints access tokens via third-party
+        # secrets providers (spotdl's secretDict from code.thetadev.de and
+        # friends) with no timeouts — that path hangs for minutes on end,
+        # which is exactly the endless-loop behaviour seen in the dashboard.
+        # The official API is fast and reliable (token in ~0.2s).
+        use_official_api=True,
     )
     _SPOTIFY_CLIENT_INITIALIZED = True
-    logger.info("spotDL Spotify client initialized")
+    logger.info("spotDL Spotify client initialized (official Web API)")
+
+
+def _run_with_timeout(fn, timeout_secs: float, *args, **kwargs):
+    """Run *fn* in a daemon worker thread, raising after timeout_secs.
+
+    A daemon thread is essential: spotipy sleeps for Retry-After seconds
+    (up to 24h once the shared bundled credentials' quota is exhausted)
+    inside the call, and a ThreadPoolExecutor would block forever on its
+    own shutdown waiting for that stranded worker. The daemon thread dies
+    with the process instead.
+    """
+    box: dict[str, Any] = {}
+
+    def _target() -> None:
+        try:
+            box["value"] = fn(*args, **kwargs)
+        except Exception as exc:  # noqa: BLE001
+            box["error"] = exc
+
+    worker = threading.Thread(target=_target, daemon=True)
+    worker.start()
+    worker.join(timeout=timeout_secs)
+    if worker.is_alive():
+        raise SpotifyDownloadError(
+            f"Spotify search timed out after {timeout_secs:.0f}s (no network "
+            "response or credentials quota exhausted). Set your own "
+            "SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET for reliable access."
+        )
+    if "error" in box:
+        raise box["error"]
+    return box.get("value")
+
+
+class _SpotifyTrack:
+    """Duck-typed stand-in for spotdl's Song with just the fields the
+    search-result conversion needs (name, artists, album, duration, url)."""
+
+    def __init__(self, track_id: str, name: str, artists: list[str],
+                 album: str, duration: float) -> None:
+        self.song_id = track_id
+        self.name = name
+        self.artists = artists
+        self.artist = artists[0] if artists else "Unknown"
+        self.album = album
+        self.duration = duration
+        self.url = f"https://open.spotify.com/track/{track_id}"
+
+
+def _spotify_token() -> str:
+    """Mint a client-credentials access token (fast, ~0.2s)."""
+    from spotdl.utils.config import SPOTIFY_OPTIONS
+    cid = os.environ.get("SPOTIFY_CLIENT_ID", SPOTIFY_OPTIONS["client_id"])
+    csec = os.environ.get("SPOTIFY_CLIENT_SECRET", SPOTIFY_OPTIONS["client_secret"])
+    resp = requests.post(
+        "https://accounts.spotify.com/api/token",
+        data={"grant_type": "client_credentials"},
+        auth=(cid, csec),
+        timeout=10,
+    )
+    resp.raise_for_status()
+    return resp.json()["access_token"]
 
 
 def _search_spotify(query: str, limit: int = 10) -> list:
-    """Search Spotify using spotDL's search functions."""
-    from spotdl.utils.search import get_search_results, parse_query
-    
+    """Search Spotify via the Web API directly (good for plain-requirement).
+
+    This deliberately bypasses spotDL's search helpers: spotipy sleeps for
+    Retry-After seconds *inside* the library (up to 24h on the shared
+    bundled credentials' exhausted app quota), which is what made the UI
+    hang. Here a 429 simply returns [] immediately and the caller falls
+    back to the iTunes Search API.
+    """
+    if not query or not query.strip():
+        return []
+
+    headers = {"Authorization": f"Bearer {_spotify_token()}"}
+
+    # Spotify URL → fetch that exact track.
+    track_url_match = re.search(r"open\.spotify\.com/track/([A-Za-z0-9]+)", query)
+    if track_url_match:
+        track_id = track_url_match.group(1)
+        resp = requests.get(f"https://api.spotify.com/v1/tracks/{track_id}", headers=headers, timeout=15)
+        if resp.status_code != 200:
+            return []
+        t = resp.json()
+        return [_SpotifyTrack(
+            track_id=t["id"],
+            name=t.get("name", "Unknown"),
+            artists=[a.get("name", "") for a in t.get("artists", [])],
+            album=(t.get("album") or {}).get("name", ""),
+            duration=float(t.get("duration_ms") or 0) / 1000.0,
+        )]
+
+    # Regular lyrics/icon searches use the search endpoint.
+    resp = requests.get(
+        "https://api.spotify.com/v1/search",
+        params={"q": query, "type": "track", "limit": max(1, min(int(limit or 10), 50))},
+        headers=headers,
+        timeout=15,
+    )
+    if resp.status_code == 429:
+        # App-level quota exhausted (shared bundled credentials) — fail fast
+        # and let the caller use the iTunes fallback.
+        logger.warning("Spotify Web API rate-limited (429) — failing fast")
+        return []
+    resp.raise_for_status()
+    items = (resp.json().get("tracks") or {}).get("items") or []
+    return [
+        _SpotifyTrack(
+            track_id=item["id"],
+            name=item.get("name", "Unknown"),
+            artists=[a.get("name", "") for a in item.get("artists", [])],
+            album=(item.get("album") or {}).get("name", ""),
+            duration=float(item.get("duration_ms") or 0) / 1000.0,
+        )
+        for item in items]
+
+
+
+def _itunes_search(query: str, limit: int = 10) -> list[SpotifySearchResult]:
+    """Search the iTunes Search API (no auth, no rate limit) as a fallback.
+
+    The bundled spotDL credentials are shared by thousands of users, so the
+    Spotify Web API regularly answers 429 (app-level daily quota) — in that
+    state NO amount of retrying helps; the search would hang or fail.
+    iTunes returns rich, reliable results instantly instead.
+
+    NOTE: results carry no spotify_url, so the spotDL downloader cannot run
+    on them until real Spotify credentials are configured via the
+    SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET env vars.
+    """
     try:
-        # Try to parse as Spotify URL first
-        song = parse_query(query)
-        if song:
-            return [song]
-    except Exception:
-        pass
-    
-    # Otherwise do a text search
-    results = get_search_results(query)
-    # Apply limit manually
-    return results[:limit] if results else []
+        import requests as _requests
+        resp = _requests.get(
+            "https://itunes.apple.com/search",
+            params={"term": query, "media": "music", "entity": "musicTrack", "limit": limit},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        items = resp.json().get("results", []) or []
+    except Exception as exc:
+        logger.error("iTunes fallback search failed: %s", exc)
+        return []
+
+    results: list[SpotifySearchResult] = []
+    for item in items:
+        title = item.get("trackName") or "Unknown"
+        artist = item.get("artistName") or "Unknown"
+        duration_ms = item.get("trackTimeMillis") or 0
+        results.append(SpotifySearchResult(
+            spotify_url="",
+            title=title,
+            artist=artist,
+            album=item.get("collectionName") or "",
+            duration=round(duration_ms / 1000.0, 1),
+            spotify_id="",
+            artwork_url=item.get("artworkUrl100") or "",
+            source="itunes",
+        ))
+    return results
 
 
 class SpotifyDownloadError(Exception):
@@ -139,6 +291,8 @@ class SpotifySearchResult:
         album: str = "",
         duration: float = 0.0,
         spotify_id: str = "",
+        artwork_url: str = "",
+        source: str = "spotify",
     ):
         self.spotify_url = spotify_url
         self.title = title
@@ -146,6 +300,10 @@ class SpotifySearchResult:
         self.album = album
         self.duration = duration
         self.spotify_id = spotify_id
+        self.artwork_url = artwork_url
+        # "spotify" = resolvable/downloadable via Spotify API;
+        # "itunes" = metadata-only fallback (download needs user creds).
+        self.source = source
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API responses."""
@@ -156,6 +314,8 @@ class SpotifySearchResult:
             "album": self.album,
             "duration": self.duration,
             "spotify_id": self.spotify_id,
+            "artwork_url": self.artwork_url,
+            "source": self.source,
         }
 
 
@@ -259,12 +419,28 @@ class SpotifyService:
         try:
             logger.info("Searching Spotify for: %s", query)
 
-            # Use spotDL's search functions
-            songs = _search_spotify(query, limit)
+            # Use spotDL's search functions, guarded by a hard timeout so a
+            # hung network call can never loop the endpoint forever. Note:
+            # spotipy sleeps for Retry-After *inside* the call (up to 24h on
+            # the shared bundled credentials' exhausted quota) — the timeout
+            # is what turns that into a clean failure.
+            try:
+                songs = _run_with_timeout(_search_spotify, 45, query, limit)
+            except Exception as sp_exc:
+                logger.warning(
+                    "Spotify Web API search failed (%s) — falling back to the "
+                    "iTunes Search API",
+                    sp_exc,
+                )
+                songs = []
 
             if not songs:
-                logger.info("No results found for: %s", query)
-                return []
+                # Spotify-side failure (rate limit, quota, no results) falls
+                # back to the always-available iTunes Search API so the user
+                # still sees results instead of a dead UI. Those results have
+                # no spotify_url — downloading needs real Spotify credentials
+                # (SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET).
+                return _itunes_search(query, limit)
 
             results = []
             for song in songs[:limit]:
@@ -472,7 +648,10 @@ class SpotifyService:
             Dictionary with service status information
         """
         return {
-            "available": SPOTDL_AVAILABLE,
+            "available": _check_spotdl_available(),
+            "credentials_configured": bool(
+                os.environ.get("SPOTIFY_CLIENT_ID") and os.environ.get("SPOTIFY_CLIENT_SECRET")
+            ),
             "ffmpeg_available": self.check_ffmpeg(),
             "output_dir": str(self.output_dir),
             "output_dir_exists": self.output_dir.exists(),

@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
-from urllib.parse import urljoin, urldefrag
+from urllib.parse import quote, urljoin, urldefrag
 
 import requests
 from bs4 import BeautifulSoup
@@ -341,23 +341,10 @@ def _ep_slug_from_url(url: str) -> str:
     return ""
 
 
-def crawl_editpacks_homepage() -> int:
-    """Crawl the homepage /?sort=new listing for pack-level metadata.
-
-    HTML structure:
-      <a class="poster" href="/source/slug">
-        <div class="poster-art"><img>...</div>
-        <div class="poster-meta">
-          <div class="...">Title text</div>
-          <div class="...">1 pack · 1 download</div>
-        </div>
-      </a>
-    """
-    url = "https://editpacks.org/?sort=new"
-    print(f"[editpacks] fetching homepage: {url}")
-    s = scrape(url, pause=2.0)
-    count = 0
-
+def _editpacks_poster_assets(s) -> list[dict]:
+    """Parse editpacks poster cards (<a class="poster" href="/source/slug">)
+    into dicts with an asset + slug for later source-page enrichment."""
+    out: list[dict] = []
     posters = s.select("a.poster[href*='/source/']")
     for a in posters:
         href = a.get("href", "")
@@ -393,17 +380,32 @@ def crawl_editpacks_homepage() -> int:
             if cats:
                 cat = cats[0]
 
-        asset = DiscoveredAsset(
-            source_site="editpacks",
-            source_url=full_url,
-            title=title,
-            category=cat,
-            year=year,
-            tags=["scenepack", "editpacks", cat.lower()],
-            views_downloads=f"{pack_count} · {dl_count}".strip(" ·"),
-            scraped_at=datetime.now().isoformat(),
-        )
-        upsert_asset(asset)
+        out.append({
+            "asset": DiscoveredAsset(
+                source_site="editpacks",
+                source_url=full_url,
+                title=title,
+                category=cat,
+                year=year,
+                tags=["scenepack", "editpacks", cat.lower()],
+                views_downloads=f"{pack_count} · {dl_count}".strip(" ·"),
+                scraped_at=datetime.now().isoformat(),
+            ),
+            "slug": slug,
+            "full_url": full_url,
+        })
+    return out
+
+
+def crawl_editpacks_homepage() -> int:
+    """Crawl the homepage /?sort=new listing for pack-level metadata."""
+    url = "https://editpacks.org/?sort=new"
+    print(f"[editpacks] fetching homepage: {url}")
+    s = scrape(url, pause=2.0)
+    count = 0
+
+    for entry in _editpacks_poster_assets(s):
+        upsert_asset(entry["asset"])
         count += 1
 
     print(f"[editpacks] homepage: {count} titles indexed")
@@ -915,6 +917,141 @@ def crawl_motionvault() -> int:
 
     print(f"[motionvault] homepage: {count} clips indexed")
     return count
+
+
+# ===========================================================================
+# Live site search (real-time, query-driven)
+# ===========================================================================
+
+_ANIMECLIPSRAW_NAV_SKIP = (
+    "/opt-out", "/cookie", "/privacy", "/contact", "/about", "/category/",
+    "/wp-", "/feed", "/xmlrpc", "/news/", "/twixtor-clips/", "/movie-serie-clips/",
+    "/editor-of-the-month", "/intro-text", "/flow-frame-page", "/anime-voice",
+    "/new-voice", "/manga-panel", "/#", "/comment",
+)
+
+
+def _animeclipsraw_post_links(s) -> list[tuple[str, str]]:
+    """Extract deduped post links (url, title) from an animeclipsraw page."""
+    seen: set[str] = set()
+    out: list[tuple[str, str]] = []
+    for a in s.select('a[href*="animeclipsraw.fr/"]'):
+        href = a.get("href", "")
+        if not href:
+            continue
+        if any(k in href for k in _ANIMECLIPSRAW_NAV_SKIP):
+            continue
+        full = urljoin("https://animeclipsraw.fr", href.split("#")[0]).rstrip("/")
+        if full == "https://animeclipsraw.fr" or full in seen:
+            continue
+        seen.add(full)
+        title = first_text(a)
+        if not title or len(title.strip()) < 3:
+            heading = a.find_parent(["h2", "h3", "h6"])
+            title = first_text(heading) if heading else ""
+        if not title or len(title.strip()) < 3 or title.strip().lower() in (
+            "manage cookie settings", "accept", "reject", "skip to content",
+        ):
+            title = full.rstrip("/").split("/")[-1].replace("-", " ").title()
+        out.append((full.rstrip("/") + "/", title.strip()))
+    return out
+
+
+def search_editpacks(query: str, enrich_top: int = 3) -> int:
+    """Live-search editpacks.org for scenepacks matching *query*.
+
+    Hits https://editpacks.org/search?q=<query>, indexes the poster cards,
+    then fetches the first few /source/<slug> pages for download URLs.
+    Returns the number of newly upserted source-level rows.
+    """
+    q = query.strip()
+    if not q:
+        return 0
+    url = "https://editpacks.org/search"
+    print(f"[editpacks] live search: {q}")
+    try:
+        s = scrape(url + f"?q={quote(q)}", pause=2.0)
+    except Exception as exc:
+        print(f"[editpacks]  live search failed: {exc}")
+        return 0
+
+    entries = _editpacks_poster_assets(s)
+    count = 0
+    enriched = 0
+    for entry in entries:
+        if upsert_asset(entry["asset"]) is not None:
+            count += 1
+        if enriched < enrich_top and entry["slug"]:
+            try:
+                crawl_editpacks_source(entry["slug"])
+                enriched += 1
+            except Exception as exc:
+                print(f"[editpacks]  enrich '{entry['slug']}' failed: {exc}")
+                enriched += 1  # don't hammer a broken page
+    print(f"[editpacks] live search '{q}': {len(entries)} posters, {enriched} source pages fetched")
+    return count
+
+
+def search_animeclipsraw(query: str, enrich_top: int = 3) -> int:
+    """Live-search animeclipsraw.fr (WordPress ?s=) for posts matching query.
+
+    Indexes post pages and fetches a few full posts for Mega/Drive links.
+    """
+    q = query.strip()
+    if not q:
+        return 0
+    print(f"[animeclipsraw] live search: {q}")
+    try:
+        s = scrape("https://animeclipsraw.fr/?s=" + quote(q), pause=2.0)
+    except Exception as exc:
+        print(f"[animeclipsraw]  live search failed: {exc}")
+        return 0
+
+    posts = _animeclipsraw_post_links(s)
+    count = 0
+    enriched = 0
+    for full_url, title in posts:
+        asset = DiscoveredAsset(
+            source_site="animeclipsraw",
+            source_url=full_url,
+            title=title,
+            category="clips",
+            tags=["anime", "clip", "animeclipsraw"],
+            scraped_at=datetime.now().isoformat(),
+        )
+        upsert_asset(asset)
+        count += 1
+        if enriched < enrich_top:
+            try:
+                crawl_animeclipsraw_post(full_url)
+                enriched += 1
+            except Exception as exc:
+                print(f"[animeclipsraw]  enrich '{full_url}' failed: {exc}")
+                enriched += 1
+    print(f"[animeclipsraw] live search '{q}': {count} posts, {enriched} enriched")
+    return count
+
+
+def search_live(query: str, enrich_top: int = 3) -> dict[str, int]:
+    """Run live query-driven searches on all supported sites (best effort).
+
+    Results are upserted into the local resources DB (dedup by source_url),
+    so any UI reading /api/assets sees them immediately.
+    """
+    init_db()
+    results: dict[str, int] = {}
+    q = query.strip()
+    if not q:
+        return results
+    try:
+        results["editpacks"] = search_editpacks(q, enrich_top=enrich_top)
+    except Exception as exc:
+        print(f"[live-search] editpacks failed: {exc}")
+    try:
+        results["animeclipsraw"] = search_animeclipsraw(q, enrich_top=enrich_top)
+    except Exception as exc:
+        print(f"[live-search] animeclipsraw failed: {exc}")
+    return results
 
 
 # ===========================================================================

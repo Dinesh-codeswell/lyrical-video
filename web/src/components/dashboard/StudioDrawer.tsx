@@ -51,6 +51,9 @@ interface LyricsFinderState {
   suggestions: { artist: string; title: string }[];
   selected: { artist: string; title: string } | null;
   lyrics: string | null;
+  // Server-provided per-line timestamps from /api/lyrics/search (LRC).
+  // Empty when only plain (untimed) lyrics were fetched.
+  structuredLyrics: { time: number; text: string }[];
   loading: boolean;
   error: string | null;
   copied: boolean;
@@ -72,6 +75,7 @@ const LyricsFinderTab: React.FC<{
     suggestions: [],
     selected: null,
     lyrics: null,
+    structuredLyrics: [],
     loading: false,
     error: null,
     copied: false,
@@ -113,7 +117,7 @@ const LyricsFinderTab: React.FC<{
   const fetchLyrics = async () => {
     const s = state.selected;
     if (!s) return;
-    setState((st) => ({ ...st, loading: true, error: null, lyrics: null }));
+    setState((st) => ({ ...st, loading: true, error: null, lyrics: null, structuredLyrics: [] }));
     try {
       // Use the POST /api/lyrics/search endpoint which expects { title, artist }
       const resp = await fetch('/api/lyrics/search', {
@@ -123,12 +127,30 @@ const LyricsFinderTab: React.FC<{
       });
       const data = await resp.json();
       if (resp.ok && data.success && data.lyrics) {
-        // Convert structured lyrics back to plain text (line-separated)
-        const plainLyrics = data.lyrics
+        // Keep server timestamps (real LRC times from NetEase) so Apply can
+        // use them instead of a blanket 3.5s-per-line guess.
+        const structured: { time: number; text: string }[] = data.lyrics
           .filter((l: { text: string }) => l.text)
-          .map((l: { text: string }) => l.text)
+          .map((l: { time: number; text: string }) => ({
+            time: typeof l.time === 'number' ? l.time : 0,
+            text: l.text as string,
+          }));
+        // Format the display text as LRC ([mm:ss.xx] line) so the timestamps
+        // survive copy/paste into other LRC-aware importers.
+        const plainLyrics = structured
+          .map(({ time, text }) => {
+            const mm = String(Math.floor(time / 60)).padStart(2, '0');
+            const ss = String(Math.floor(time % 60)).padStart(2, '0');
+            const xx = String(Math.floor(Math.round((time % 1) * 100) % 100)).padStart(2, '0');
+            return `[${mm}:${ss}.${xx}]${text}`;
+          })
           .join('\r\n');
-        setState((st) => ({ ...st, lyrics: plainLyrics, loading: false }));
+        setState((st) => ({
+          ...st,
+          lyrics: plainLyrics,
+          structuredLyrics: structured,
+          loading: false,
+        }));
       } else {
         setState((st) => ({ ...st, loading: false, error: data.detail || data.error || 'No lyrics found' }));
       }
@@ -156,20 +178,68 @@ const LyricsFinderTab: React.FC<{
     // Derive title/artist from the loaded song metadata when available.
     const songLabel = songPaths?.lyrics ? 'loaded song' : String(selectedSong ?? 'the current song');
 
-    // Parse the fetched lyrics into simple timed clips.
-    // Lines are separated by blank lines; each gets a start time and a 3.5s duration
-    // (mirrors the web frontend's plain-text spacing so the result is immediately usable).
+    // Real server-provided timestamps ([mm:ss.xx] LRC kept in the text, and
+    // structuredLyrics from /api/lyrics/search) take precedence; the 3.5s
+    // per-line spacing is only a fallback for untimed lyrics.
     const rawLines = state.lyrics.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
     if (rawLines.length === 0) return;
 
-    const newClips: LyricClip[] = rawLines.map((text, i) => ({
-      id: `lf-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 7)}`,
-      start_time: Math.round(i * 3.5 * 10) / 10,
-      end_time: Math.round((i + 1) * 3.5 * 10) / 10,
-      text,
-    }));
+    // TypeScript note: replace \r\n literals with escaped CRLF guards.
+    const parseLrcTimestamp = (line: string): { time: number | null; text: string } => {
+      const m = line.match(/^\[(\d{1,2}):(\d{2})\.(\d{1,3})\](.*)$/);
+      if (!m) return { time: null, text: line };
+      const time = parseInt(m[1], 10) * 60 + parseInt(m[2], 10) + parseInt(m[3].padEnd(2, '0'), 10) / 100;
+      return { time, text: m[4].trim() };
+    };
+
+    const parsed = rawLines.map(parseLrcTimestamp);
+    const structured = state.structuredLyrics;
+    // If the text carries no bracket times, fall back to structured times.
+    const textHasTimes = parsed.some((p) => p.time !== null);
+
+    const newClips: LyricClip[] = rawLines.map((lineText, i) => {
+      let start: number;
+      let text: string;
+      if (textHasTimes) {
+        const p = parsed[i];
+        start = p.time !== null ? p.time : (i === 0 ? 0 : Math.round(i * 3.5 * 10) / 10);
+        text = p.time !== null ? p.text : lineText;
+      } else {
+        const st = structured[i];
+        start = st && st.text === lineText ? st.time : Math.round(i * 3.5 * 10) / 10;
+        text = lineText;
+      }
+      // End time: next line's start, else +3.5s.
+      let end: number;
+      if (i + 1 < rawLines.length) {
+        const nxt = textHasTimes ? parsed[i + 1] : null;
+        const nextStartRaw = nxt && nxt.time !== null
+          ? nxt.time
+          : (structured[i + 1] && !textHasTimes && structured[i + 1].text === rawLines[i + 1]
+              ? structured[i + 1].time
+              : null);
+        if (nextStartRaw !== null) {
+          end = Math.round(nextStartRaw * 10) / 10;
+        } else {
+          end = Math.round((start + 3.5) * 10) / 10;
+        }
+      } else {
+        end = Math.round((start + 3.5) * 10) / 10;
+      }
+      if (end <= start) end = Math.round((start + 0.2) * 10) / 10;
+      return {
+        id: `lf-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 7)}`,
+        start_time: Math.round(start * 10) / 10,
+        end_time: end,
+        text,
+      };
+    });
     onClipsChange(newClips, `Lyrics Finder: ${state.selected!.artist} — ${state.selected!.title}`);
-    setState((st) => ({ ...st, applied: `${rawLines.length} lines applied to “${songLabel}”` }));
+    const usedServerTimes = (textHasTimes || structured.length > 0);
+    setState((st) => ({
+      ...st,
+      applied: `${newClips.length} lines applied to “${songLabel}”${usedServerTimes ? ' with original timestamps' : ' (default 3.5s pacing)'}`,
+    }));
   };
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   void songPaths;
@@ -280,7 +350,7 @@ const LyricsFinderTab: React.FC<{
 
 interface SpotifySearchState {
   query: string;
-  results: { spotify_url: string; title: string; artist: string; album: string; duration: number; spotify_id: string }[];
+  results: { spotify_url: string; title: string; artist: string; album: string; duration: number; spotify_id: string; artwork_url?: string; source?: string }[];
   loading: boolean;
   error: string | null;
   status: { available: boolean; reason?: string } | null;
@@ -464,6 +534,7 @@ const AssetsTab: React.FC<{
   const [siteFilter, setSiteFilter] = useState('');
   const [search, setSearch] = useState('');
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
+  const [liveSearchNote, setLiveSearchNote] = useState<string | null>(null);
 
   const loadAssets = useCallback(async () => {
     setLoading(true);
@@ -471,16 +542,49 @@ const AssetsTab: React.FC<{
       const params = new URLSearchParams();
       if (siteFilter) params.set('site', siteFilter);
       if (search) params.set('search', search);
-      params.set('with_dl', 'true');
       const resp = await fetch(`/api/assets?${params}`);
+      if (!resp.ok) {
+        throw new Error(`HTTP ${resp.status}`);
+      }
       const data = await resp.json();
       setAssets(data.assets || []);
+      setLiveSearchNote(null);
     } catch (err) {
       console.error('Failed to load assets:', err);
+      setLiveSearchNote(`Failed to load assets: ${err instanceof Error ? err.message : 'unknown error'}`);
     } finally {
       setLoading(false);
     }
   }, [siteFilter, search]);
+
+  // Live-search the external clip sites (editpacks / animeclipsraw) for the
+  // entered query, then render the freshly indexed results.
+  const runLiveSearch = useCallback(async () => {
+    const q = search.trim();
+    if (!q || loading) return;
+    setLoading(true);
+    try {
+      const resp = await fetch('/api/assets/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ q }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({} as any));
+        throw new Error(err.detail || `HTTP ${resp.status}`);
+      }
+      const data = await resp.json();
+      setAssets(data.assets || []);
+      const searched = data.searched && typeof data.searched === 'object' ? data.searched : {};
+      const siteInfo = Object.entries(searched).map(([s, n]) => `${s}: ${n}`).join(', ') || 'no new';
+      setLiveSearchNote(`Searched sites (${siteInfo}). ${data.count ?? 0} results.`);
+    } catch (err) {
+      console.error('Live asset search failed:', err);
+      setLiveSearchNote(`Live search failed: ${err instanceof Error ? err.message : 'unknown error'}`);
+    } finally {
+      setLoading(false);
+    }
+  }, [search, loading]);
 
   useEffect(() => {
     loadAssets();
@@ -535,9 +639,10 @@ const AssetsTab: React.FC<{
         <input
           type="text"
           className="pro-input"
-          placeholder="Search clips by title…"
+          placeholder="Search clip sites (e.g. Spider-Man, Jujutsu Kaisen) — fires live site search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') runLiveSearch(); }}
           style={{ width: '100%', marginBottom: 8 }}
         />
         <select
@@ -554,12 +659,26 @@ const AssetsTab: React.FC<{
         </select>
         <button
           className="btn-secondary"
+          onClick={runLiveSearch}
+          disabled={loading || !search.trim()}
+          style={{ marginTop: 8, marginRight: 8 }}
+          title="Query the sites live and index fresh results"
+        >
+          {loading ? 'Searching…' : 'Search Sites'}
+        </button>
+        <button
+          className="btn-ghost small"
           onClick={loadAssets}
           disabled={loading}
           style={{ marginTop: 8 }}
         >
-          {loading ? 'Loading…' : 'Refresh'}
+          Refresh
         </button>
+        {liveSearchNote && (
+          <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 6 }}>
+            {liveSearchNote}
+          </div>
+        )}
       </div>
 
       <div className="assets-grid">
@@ -753,6 +872,9 @@ const SpotifyTab: React.FC<{
         <div className="spotify-results">
           {state.results.map((r, idx) => (
             <div key={idx} className="spotify-result-item">
+              {r.artwork_url && (
+                <img src={r.artwork_url} alt="" loading="lazy" className="spotify-result-art" />
+              )}
               <div className="spotify-result-info">
                 <span className="spotify-result-title">{r.title}</span>
                 <span className="spotify-result-artist">{r.artist}</span>
@@ -763,16 +885,30 @@ const SpotifyTab: React.FC<{
                 <button
                   type="button"
                   className="btn-spotify-download"
-                  onClick={() => downloadSong(r.spotify_url)}
-                  disabled={!selectedSong}
-                  title={selectedSong ? 'Download to current song' : 'Select a song first'}
+                  onClick={() => r.spotify_url && downloadSong(r.spotify_url)}
+                  disabled={!selectedSong || !r.spotify_url}
+                  title={
+                    !r.spotify_url
+                      ? 'Metadata-only result (Spotify API quota exhausted) — set SPOTIFY_CLIENT_ID/SECRET for downloads'
+                      : selectedSong ? 'Download to current song' : 'Select a song first'
+                  }
                 >
                   <Download size={14} />
-                  {selectedSong ? 'Download' : 'No Song'}
+                  {r.source === 'itunes' && r.spotify_url === ''
+                    ? 'Preview only'
+                    : selectedSong ? 'Download' : 'No Song'}
                 </button>
               </div>
             </div>
           ))}
+
+          {state.results.every(r => !r.spotify_url) && (
+            <div className="spotify-hint">
+              Note: Spotify's shared search credentials are rate-limited, so results shown are
+              iTunes metadata (no direct download). To enable downloads, set SPOTIFY_CLIENT_ID and
+              SPOTIFY_CLIENT_SECRET to your own Spotify app credentials on the server.
+            </div>
+          )}
         </div>
       )}
 

@@ -139,6 +139,7 @@ class ClipsLibraryPanel(QGroupBox):
         self._search.setPlaceholderText("Search clips by title…")
         self._search.setFixedHeight(28)
         self._search.textChanged.connect(self._on_search)
+        self._search.returnPressed.connect(self._live_search)
         top_row.addWidget(self._search)
 
         self._site_filter = QComboBox()
@@ -197,6 +198,44 @@ class ClipsLibraryPanel(QGroupBox):
 
     def _on_search(self, query: str) -> None:
         self._apply_filter()
+
+    def _live_search(self) -> None:
+        """Enter in the search box: query the external sites live, then reload.
+
+        Requires the local API (self._api_base) to be running — falls back
+        to the plain DB filter if it is not.
+        """
+        q = self._search.text().strip()
+        if not q:
+            return
+        self._status_label.setText(f"Searching clip sites for '{q}'… (this can take ~30s)")
+
+        def _run() -> None:
+            try:
+                import requests as _requests
+                resp = _requests.post(
+                    f"{self._api_base}/api/assets/search",
+                    json={"q": q},
+                    timeout=180,
+                )
+                if resp.status_code != 200:
+                    raise RuntimeError(f"HTTP {resp.status_code}: {resp.text[:200]}")
+                payload = resp.json()
+                n = payload.get("count", 0) if isinstance(payload, dict) else 0
+                if not self._stop_load.is_set():
+                    self._status_label.setText(
+                        f"Live search finished: {n} results — reloading index…"
+                    )
+                    self._refresh_index()
+            except Exception as exc:
+                if not self._stop_load.is_set():
+                    self._refresh_index()
+                    self._status_label.setText(
+                        f"Live search failed ({exc}) — showing indexed assets only"
+                    )
+
+        self._load_thread = threading.Thread(target=_run, daemon=True)
+        self._load_thread.start()
 
     def _on_site_filter(self, site: str) -> None:
         self._apply_filter()

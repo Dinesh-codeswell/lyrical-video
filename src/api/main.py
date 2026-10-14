@@ -25,6 +25,7 @@ from src.core.resource_scraper import (
     upsert_asset,
     DiscoveredAsset,
     crawl_editpacks_source_pages,
+    search_live,
 )
 from src.core.anime_client import AnimeImageClient, get_client
 from src.core.video_generator import generate_video
@@ -443,6 +444,26 @@ async def download_raw(path: str):
 # ──────────────────────────────────────────────────────────────────────────
 # Assets (clips library) endpoints
 
+def _asset_to_dict(a) -> dict:
+    """Shape a DiscoveredAsset for the /api/assets JSON responses."""
+    return {
+        "id": a.id if hasattr(a, "id") else None,
+        "site": a.source_site,
+        "title": a.title,
+        "source_url": a.source_url,
+        "category": a.category,
+        "tags": a.tags,
+        "resolution": a.resolution,
+        "duration": a.duration,
+        "download_url": a.download_url,
+        "thumbnail_url": a.thumbnail_url,
+        "views_downloads": a.views_downloads,
+        "scraped_at": a.scraped_at,
+        "status": a.status,
+        "local_path": a.local_path,
+    }
+
+
 @app.get("/api/assets")
 async def list_assets(
     site: str = Query("", description="Filter by site name"),
@@ -464,23 +485,7 @@ async def list_assets(
             continue
         if with_dl and not a.download_url:
             continue
-        entry = {
-            "id": a.id if hasattr(a, "id") else None,
-            "site": a.source_site,
-            "title": a.title,
-            "source_url": a.source_url,
-            "category": a.category,
-            "tags": a.tags,
-            "resolution": a.resolution,
-            "duration": a.duration,
-            "download_url": a.download_url,
-            "thumbnail_url": a.thumbnail_url,
-            "views_downloads": a.views_downloads,
-            "scraped_at": a.scraped_at,
-            "status": a.status,
-            "local_path": a.local_path,
-        }
-        out.append(entry)
+        out.append(_asset_to_dict(a))
     return {"assets": out, "count": len(out)}
 
 
@@ -524,6 +529,45 @@ async def serve_asset_file(asset_id: int):
     }.get(ext, "application/octet-stream")
     
     return FileResponse(path, filename=path.name, media_type=media_type)
+
+
+@app.post("/api/assets/search")
+async def search_assets_live(request: Request):
+    """Live-search the external clip sites for *q* and return matching assets.
+
+    Runs query-driven crawls of editpacks.org and animeclipsraw.fr (with a
+    few per-site detail-page fetches), upserts everything into the local
+    resources DB, then returns the DB listing filtered to the query — the
+    same shape the AssetsTab renders. This is what makes searches like
+    "Spider-Man" return real, freshly fetched results instead of whatever
+    happens to be in the local index.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    q = str((body or {}).get("q", "")).strip()
+    if not q:
+        raise HTTPException(status_code=400, detail="Query 'q' is required")
+
+    enrich_top = int((body or {}).get("enrich_top", 3))
+    try:
+        counts = await asyncio.to_thread(search_live, q, enrich_top)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Live site search failed: {exc}")
+
+    # Return the DB listing matching the query so the frontend can render it
+    # directly without a second GET.
+    init_db()
+    assets = iter_assets()
+    low = q.lower()
+    out = []
+    for a in assets:
+        haystack = f"{a.title} {a.source_url} {' '.join(a.tags or [])}".lower()
+        if low not in haystack:
+            continue
+        out.append(_asset_to_dict(a))
+    return {"searched": counts, "assets": out, "count": len(out)}
 
 
 @app.post("/api/assets/{asset_id}/download")

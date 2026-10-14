@@ -22,10 +22,12 @@ try:
         SpotifySearchResult,
         SpotifyDownloadError,
         SpotifyServiceUnavailable,
-        SPOTDL_AVAILABLE,
+        _check_spotdl_available,
         download_spotify_song,
     )
-    SPOTIFY_AVAILABLE = SPOTDL_AVAILABLE
+    # Probe spotDL at import time (don't rely on the raw SPOTDL_AVAILABLE
+    # global — it is only set by the lazy probe).
+    SPOTIFY_AVAILABLE = _check_spotdl_available()
 except ImportError as e:
     SPOTIFY_AVAILABLE = False
     SpotifyService = None
@@ -59,6 +61,8 @@ class TestSpotifySearchResult:
             "album": "Test Album",
             "duration": 180.5,
             "spotify_id": "12345",
+            "artwork_url": "",
+            "source": "spotify",
         }
 
         assert result.to_dict() == expected
@@ -72,8 +76,10 @@ class TestSpotifyServiceInitialization:
         if SpotifyService is None:
             pytest.skip("spotDL not available for testing")
 
-        # This should raise an error if spotDL is not available
-        with patch("src.core.spotify_service.SPOTDL_AVAILABLE", False):
+        # This should raise an error if spotDL is not available.
+        # Patch the availability probe itself (the right seam): patching the
+        # SPOTDL_AVAILABLE global doesn't work because the probe writes it.
+        with patch("src.core.spotify_service._check_spotdl_available", return_value=False):
             with pytest.raises(SpotifyServiceUnavailable):
                 SpotifyService(output_dir=Path("/tmp/test"))
 
@@ -132,8 +138,11 @@ class TestSpotifyServiceSearch:
 
         service = SpotifyService(output_dir=Path("/tmp/test"))
 
+        # download() is async; drive it with asyncio.run() so the body
+        # actually executes and the guard can raise.
+        import asyncio
         with pytest.raises(SpotifyDownloadError):
-            service.download("not-a-valid-url")
+            asyncio.run(service.download("not-a-valid-url"))
 
     @pytest.mark.skipif(not SPOTIFY_AVAILABLE, reason="spotDL not available")
     @pytest.mark.skipif(not sys.stdout.reconfigure, reason="Unicode not supported")
